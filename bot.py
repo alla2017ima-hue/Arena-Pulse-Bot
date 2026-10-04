@@ -10,7 +10,7 @@ import os
 BOT_TOKEN = "8587695169:AAEcrrxE4ONNfipP2iJP1O0DuaLizKcNvSg"
 CHANNEL_ID = "@ArenaPulse_DZ"
 
-# إعداد خادم ويب مصغر لإرضاء منصة Render والبقاء على الخطة المجانية 100%
+# إعداد خادم ويب مصغر لإرضاء منصة Render
 app = Flask(__name__)
 
 @app.route('/')
@@ -37,26 +37,24 @@ def send_telegram_message(text):
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
-# تخزين العناوين لمنع تكرارها
 sent_news = set()
 
 def fetch_live_sports_news():
-    """جلب الأخبار وصياغتها على شكل مانشيت جريدة رياضية احترافية"""
-    # استخدام خلاصة أخبار رياضية عربية نشطة
-    rss_url = "https://www.kooora.com/default.aspx?r=rss"
+    """جلب الأخبار من مصدر RSS رياضي عربي بديل ومضمون"""
+    # استخدام مصدر بديل لأخبار كرة القدم الرياضية
+    rss_url = "https://www.yallakora.com/rss/sections" # موقع يلا كورة كمصدر قوي ومباشر للأخبار الرياضية العربية
     
     try:
         feed = feedparser.parse(rss_url)
         if feed.entries:
-            for entry in feed.entries[:2]: # جلب أحدث خبرين
+            for entry in feed.entries[:2]:
                 news_title = entry.title
-                news_link = entry.link
+                news_link = entry.link if hasattr(entry, 'link') else "https://www.yallakora.com"
                 
                 if news_title not in sent_news:
                     sent_news.add(news_title)
                     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
                     
-                    # صياغة الخبر على شكل قالب جريدة رياضية متكامل
                     message = (
                         f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
                         f"━━━━━━━━━━━━━━━━━━━\n\n"
@@ -73,20 +71,18 @@ def fetch_live_sports_news():
                     send_telegram_message(message)
                     time.sleep(3)
         else:
-            print("⚠️ تنبيه: لم يتم العثور على مداخل في خلاصة الأخبار حالياً.")
+            print("⚠️ تنبيه: جارِ محاولة جلب الأخبار من المصدر البديل.")
     except Exception as e:
         print("⚠️ [خطأ في جلب الأخبار]:", e)
 
 def bot_loop():
-    """حلقة العمل المستمرة للبوت"""
     print("🤖 صحيفة Arena Pulse الرقمية تبدأ بث الأخبار الحية...")
     
-    # تنفيذ جلب الأخبار فور تشغيل البوت مباشرة دون انتظار
+    # محاولة الجلب فور الإقلاع
     fetch_live_sports_news()
     
     while True:
-        # فحص الأخبار الجديدة كل 15 دقيقة
-        time.sleep(900)
+        time.sleep(900) # كل 15 دقيقة
         fetch_live_sports_news()
 
 if __name__ == "__main__":
