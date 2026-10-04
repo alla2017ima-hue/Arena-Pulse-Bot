@@ -32,57 +32,73 @@ def send_telegram_message(text):
     try:
         response = requests.post(url, json=payload)
         result = response.json()
-        if not result.get("ok"):
-            print("❌ [خطأ في الإرسال]:", result.get("description"))
+        if result.get("ok"):
+            print("✅ [تم بنجاح]: تم إرسال الخبر للقناة.")
+        else:
+            print("❌ [خطأ في تليجرام]:", result.get("description"))
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
 sent_news = set()
 
 def fetch_live_sports_news():
-    """جلب الأخبار من مصدر RSS رياضي عربي بديل ومضمون"""
-    # استخدام مصدر بديل لأخبار كرة القدم الرياضية
-    rss_url = "https://www.yallakora.com/rss/sections" # موقع يلا كورة كمصدر قوي ومباشر للأخبار الرياضية العربية
+    """جلب الأخبار الرياضية الحية الموثوقة"""
+    # استخدام خلاصة رياضية نشطة ومفتوحة
+    rss_url = "https://www.yallakora.com/rss/sections"
     
     try:
-        feed = feedparser.parse(rss_url)
-        if feed.entries:
-            for entry in feed.entries[:2]:
-                news_title = entry.title
-                news_link = entry.link if hasattr(entry, 'link') else "https://www.yallakora.com"
-                
-                if news_title not in sent_news:
-                    sent_news.add(news_title)
-                    current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+        # إضافة User-Agent لكي لا يرفض السيرفر الطلب
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(rss_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            feed = feedparser.parse(response.content)
+            if feed.entries:
+                count = 0
+                for entry in feed.entries:
+                    if count >= 2: # نشر أحدث خبرين فقط في الدورة الواحدة
+                        break
+                        
+                    news_title = entry.title
+                    news_link = entry.link if hasattr(entry, 'link') else "https://www.yallakora.com"
                     
-                    message = (
-                        f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
-                        f"━━━━━━━━━━━━━━━━━━━\n\n"
-                        f"🚨 **مانشيت عاجل:**\n"
-                        f"📌 *{news_title}*\n\n"
-                        f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
-                        f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
-                        f"━━━━━━━━━━━━━━━━━━━\n"
-                        f"🕒 الإصدار: `{current_time}`\n"
-                        f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
-                        f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
-                    )
-                    
-                    send_telegram_message(message)
-                    time.sleep(3)
+                    if news_title not in sent_news:
+                        sent_news.add(news_title)
+                        current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+                        
+                        message = (
+                            f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
+                            f"━━━━━━━━━━━━━━━━━━━\n\n"
+                            f"🚨 **مانشيت عاجل:**\n"
+                            f"📌 *{news_title}*\n\n"
+                            f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
+                            f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
+                            f"━━━━━━━━━━━━━━━━━━━\n"
+                            f"🕒 الإصدار: `{current_time}`\n"
+                            f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
+                            f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
+                        )
+                        
+                        send_telegram_message(message)
+                        count += 1
+                        time.sleep(3)
+            else:
+                print("⚠️ تنبيه: لا توجد مداخل في الخلاصة حالياً.")
         else:
-            print("⚠️ تنبيه: جارِ محاولة جلب الأخبار من المصدر البديل.")
+            print(f"⚠️ خطأ في الاستجابة من الموقع، الكود: {response.status_code}")
+            
     except Exception as e:
         print("⚠️ [خطأ في جلب الأخبار]:", e)
 
 def bot_loop():
     print("🤖 صحيفة Arena Pulse الرقمية تبدأ بث الأخبار الحية...")
     
-    # محاولة الجلب فور الإقلاع
+    # تنفيذ الفحص والجلب فور تشغيل البوت
     fetch_live_sports_news()
     
     while True:
-        time.sleep(900) # كل 15 دقيقة
+        # الانتظار لمدة 15 دقيقة ثم إعادة الفحص
+        time.sleep(900)
         fetch_live_sports_news()
 
 if __name__ == "__main__":
