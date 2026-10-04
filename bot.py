@@ -5,9 +5,9 @@ from flask import Flask
 import threading
 import os
 
-# إعدادات البوت والقناة الأساسية
+# إعدادات البوت ومعرف قناتك الصحيح
 BOT_TOKEN = "8587695169:AAEcrrxE4ONNfipP2iJP1O0DuaLizKcNvSg"
-CHANNEL_ID = "@ArenaPulse"
+CHANNEL_ID = "@ArenaPulse_DZ"
 
 # إعداد خادم ويب مصغر لإرضاء منصة Render والبقاء على الخطة المجانية 100%
 app = Flask(__name__)
@@ -57,7 +57,7 @@ def fetch_sports_news_and_matches():
 def bot_loop():
     """حلقة تكرارية لعمل البوت بشكل دائم وإرسال التحديثات"""
     print("🤖 بوت Arena Pulse الرياضي يعمل الآن بنجاح...")
-    send_telegram_message("🚀 *Arena Pulse Bot* انطلق رسمياً! جاهز لبث أخبار كرة القدم ومواعيد المباريات 24/24 باللغة العربية.")
+    send_telegram_message("🚀 *Arena Pulse Bot* انطلق رسمياً في قناتكم! جاهز لبث أخبار كرة القدم ومواعيد المباريات 24/24 باللغة العربية.")
     
     while True:
         fetch_sports_news_and_matches()
@@ -72,4 +72,3 @@ if __name__ == "__main__":
     
     # تشغيل حلقة البوت الأساسية
     bot_loop()
-    
