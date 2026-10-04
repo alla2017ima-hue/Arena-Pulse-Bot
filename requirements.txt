@@ -1,1 +1,4 @@
+flask
+pyTelegramBotApi
 requests
+# (أو أي مكتبات أخرى تستخدمها في مشروعك)
