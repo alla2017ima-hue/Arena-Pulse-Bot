@@ -40,7 +40,7 @@ def send_telegram_message(text):
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
-# بنك الأخبار والتقارير الرياضية الاحتياطي الذكي والمتجدد لضمان استمرار النشر بلا توقف
+# بنك التقارير والمانشيتات الرياضية الاحتياطية
 BACKUP_SPORTS_NEWS = [
     {
         "title": "كواليس مثيرة: صراع محموم بين الأندية الكبرى لتدعيم الصفوف في الميركاتو المقبل",
@@ -72,7 +72,6 @@ SPORTS_RSS_SOURCES = [
 ]
 
 def fetch_and_publish_news():
-    """محاولة جلب الأخبار الحية، وإذا تعذر الأمر يتم تفعيل النظام الاحتياطي الذكي فورا"""
     global sent_news
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -80,7 +79,6 @@ def fetch_and_publish_news():
     
     news_sent = False
     
-    # محاولة الجلب من المصادر الخارجية أولاً
     for rss_url in SPORTS_RSS_SOURCES:
         try:
             response = requests.get(rss_url, headers=headers, timeout=8)
@@ -92,4 +90,28 @@ def fetch_and_publish_news():
                         news_link = entry.link if hasattr(entry, 'link') else rss_url
                         
                         if news_title not in sent_news:
-                            sent_news
+                            sent_news.add(news_title)
+                            current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+                            
+                            message = (
+                                f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
+                                f"━━━━━━━━━━━━━━━━━━━\n\n"
+                                f"🚨 **مانشيت عاجل:**\n"
+                                f"📌 *{news_title}*\n\n"
+                                f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
+                                f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
+                                f"━━━━━━━━━━━━━━━━━━━\n"
+                                f"🕒 الإصدار: `{current_time}`\n"
+                                f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
+                                f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
+                            )
+                            send_telegram_message(message)
+                            news_sent = True
+                            break
+            if news_sent:
+                break
+        except Exception:
+            continue
+            
+    if not news_sent:
+        available_backup = [n for n in BACKUP_SPORTS_NEWS if n["title"] not in sent_news]
