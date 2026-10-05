@@ -39,7 +39,7 @@ def send_telegram_message(text):
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
-# قاعدة بيانات المانشيتات والتقارير الرياضية المتجددة والغنية بالتحليلات
+# قاعدة بيانات المانشيتات والتقارير الرياضية المتجددة
 SPORTS_NEWS_BANK = [
     {
         "category": "ميركاتو الحصري ⚽",
@@ -74,7 +74,6 @@ def generate_and_publish_news():
     """توليد ونشر تقرير رياضي احترافي من بنك المحتوى الذكي"""
     global sent_articles
     
-    # اختيار خبر غير مكرر
     available_news = [n for n in SPORTS_NEWS_BANK if n["title"] not in sent_articles]
     if not available_news:
         sent_articles.clear()
@@ -103,12 +102,11 @@ def generate_and_publish_news():
     send_telegram_message(message)
 
 def delayed_start():
-    """انتظار استقرار الخادم ثم بدء النشر الفوري والمنتظم"""
-    time.sleep(5)
+    """النشر الفوري بعد الإقلاع بقليل ثم جدولة التحديثات"""
+    time.sleep(2)
     generate_and_publish_news()
     
     while True:
-        # إرسال تقرير جديد ومميز كل 30 دقيقة بانتظام تامة
         time.sleep(1800)
         generate_and_publish_news()
 
