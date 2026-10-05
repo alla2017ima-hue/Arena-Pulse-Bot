@@ -1,5 +1,4 @@
 import time
-import random
 import requests
 import feedparser
 from datetime import datetime
@@ -16,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Smart Dual Newspaper Bot is active and running 24/7!"
+    return "Arena Pulse Live Sports Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -34,58 +33,38 @@ def send_telegram_message(text):
         response = requests.post(url, json=payload)
         result = response.json()
         if result.get("ok"):
-            print("✅ [تم بنجاح]: تم نشر المانشيت الصحفي في القناة.")
+            print("✅ [تم بنجاح]: تم نشر الخبر الرياضي في القناة.")
         else:
             print("❌ [خطأ في تليجرام]:", result.get("description"))
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
-# بنك التقارير والمانشيتات الرياضية الاحتياطية
-BACKUP_SPORTS_NEWS = [
-    {
-        "title": "كواليس مثيرة: صراع محموم بين الأندية الكبرى لتدعيم الصفوف في الميركاتو المقبل",
-        "link": "https://t.me/ArenaPulse_DZ"
-    },
-    {
-        "title": "تحليل فني: قراءة في أحدث الخطط التكتيكية وأساليب الضغط العالي في البطولات الأوروبية",
-        "link": "https://t.me/ArenaPulse_DZ"
-    },
-    {
-        "title": "تقرير حصري: أبرز المواهب الشابة التي خطفت الأنظار وأصبحت محط أنظار كبار القارة",
-        "link": "https://t.me/ArenaPulse_DZ"
-    },
-    {
-        "title": "حالة ترقب واسعة للإعلان عن المواعيد الرسمية للمواجهات الحاسمة والأدوار الإقصائية",
-        "link": "https://t.me/ArenaPulse_DZ"
-    },
-    {
-        "title": "أرقام قياسية جديدة تُسجل في ملاعب كرة القدم وتاريخ يكتب من جديد هذا الموسم",
-        "link": "https://t.me/ArenaPulse_DZ"
-    }
-]
-
+# سجل لحفظ العناوين التي تم نشرها لعدم تكرارها
 sent_news = set()
+
+# مصادر RSS حية ومستقرة ومفتوحة لجلب الأخبار الرياضية العالمية والعربية
 SPORTS_RSS_SOURCES = [
-    "https://www.yallakora.com/rss/sections",
-    "https://www.filgoal.com/rss/news",
-    "https://www.kooora.com/default.aspx?r=rss"
+    "https://www.aljazeera.net/rss/category/sport",
+    "https://www.skynewsarabia.com/web/rss/sports",
+    "https://www.kooora.com/default.aspx?r=rss" # تم ترك رابط كورة الاحتياطي ضمن المصادر المتعددة
 ]
 
-def fetch_and_publish_news():
+def fetch_live_sports_news():
+    """جلب الأخبار الرياضية الحية والمباشرة من المصادر المتاحة"""
     global sent_news
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
-    news_sent = False
+    news_published = 0
     
     for rss_url in SPORTS_RSS_SOURCES:
         try:
-            response = requests.get(rss_url, headers=headers, timeout=5)
+            response = requests.get(rss_url, headers=headers, timeout=10)
             if response.status_code == 200:
                 feed = feedparser.parse(response.content)
                 if feed.entries:
-                    for entry in feed.entries[:1]:
+                    for entry in feed.entries[:2]:
                         news_title = entry.title
                         news_link = entry.link if hasattr(entry, 'link') else rss_url
                         
@@ -93,64 +72,10 @@ def fetch_and_publish_news():
                             sent_news.add(news_title)
                             current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
                             
+                            # قالب الجريدة الرياضية الاحترافي الأنيق
                             message = (
                                 f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
                                 f"━━━━━━━━━━━━━━━━━━━\n\n"
                                 f"🚨 **مانشيت عاجل:**\n"
                                 f"📌 *{news_title}*\n\n"
-                                f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
-                                f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
-                                f"━━━━━━━━━━━━━━━━━━━\n"
-                                f"🕒 الإصدار: `{current_time}`\n"
-                                f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
-                                f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
-                            )
-                            send_telegram_message(message)
-                            news_sent = True
-                            break
-            if news_sent:
-                break
-        except Exception:
-            continue
-            
-    if not news_sent:
-        available_backup = [n for n in BACKUP_SPORTS_NEWS if n["title"] not in sent_news]
-        if not available_backup:
-            sent_news.clear()
-            available_backup = BACKUP_SPORTS_NEWS
-            
-        news = random.choice(available_backup)
-        sent_news.add(news["title"])
-        current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
-        
-        message = (
-            f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
-            f"━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🚨 **مانشيت عاجل:**\n"
-            f"📌 *{news['title']}*\n\n"
-            f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
-            f"[اضغط هنا لقراءة التقرير كاملاً]({news['link']})\n\n"
-            f"━━━━━━━━━━━━━━━━━━━\n"
-            f"🕒 الإصدار: `{current_time}`\n"
-            f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
-            f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
-        )
-        send_telegram_message(message)
-
-def delayed_start():
-    """انتظار استقرار خادم الويب تماماً قبل بدء عملية نشر الأخبار"""
-    time.sleep(5)
-    fetch_and_publish_news()
-    
-    while True:
-        time.sleep(1800)
-        fetch_and_publish_news()
-
-if __name__ == "__main__":
-    # تشغيل خادم فلاسك في الخيط الرئيسي لمنع الإغلاق المبكر
-    t = threading.Thread(target=delayed_start)
-    t.daemon = True
-    t.start()
-    
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+                               
