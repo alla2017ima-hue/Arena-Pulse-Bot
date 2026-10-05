@@ -40,15 +40,10 @@ def send_telegram_message(text):
 
 def clean_and_format_title(title):
     """دالة ذكية لتنظيف النصوص المتلاصقة وإضافة المسافات والفواصل تلقائياً"""
-    # إزالة الأسطر الزائدة والمسافات المتعددة
     title = re.sub(r'\s+', ' ', title).strip()
-    
-    # معالجة الكلمات الملتصقة الناتجة عن جداول النتائج (مثل تكرار الأسماء والأرقام)
-    # إضافة مسافة قبل الأرقام إذا كانت ملتصقة بحروف
     title = re.sub(r'([؍؞،؛؟!\.\٬٪ٱإأآةيواو])([^\s\d])', r'\1 \2', title)
     title = re.sub(r'([^\s\d])(\d)', r'\1 \2', title)
     title = re.sub(r'(\d)([^\s\d])', r'\1 \2', title)
-    
     return title
 
 def classify_sport(title):
@@ -104,7 +99,6 @@ def fetch_and_publish_news():
                     raw_title = a_tag.get_text()
                     title = clean_and_format_title(raw_title)
                     
-                    # التحقق من جودة العنوان وطوله وأنه غير مكرر
                     if len(title) > 20 and title not in sent_news:
                         link = a_tag.get('href', '')
                         if link and not link.startswith('http'):
@@ -122,7 +116,6 @@ def fetch_and_publish_news():
                         
                         sent_news.add(title)
                         
-                        # تصنيف المقال بناءً على محتواه
                         if classify_sport(title) == "football":
                             football_articles.append(article_data)
                         else:
@@ -131,16 +124,14 @@ def fetch_and_publish_news():
         except Exception as e:
             print(f"⚠ تعذر السحب من {source['name']}: {e}")
             
-    # ترتيب المقالات حسب الأولوية
     football_articles.sort(key=lambda x: x["priority"], reverse=True)
     other_articles.sort(key=lambda x: x["priority"], reverse=True)
     
-    # اختيار العدد المطلوب: 40 كرة قدم + 20 رياضة أخرى
     selected_football = football_articles[:40]
     selected_others = other_articles[:20]
     
     final_articles = selected_football + selected_others
-    print(f"📊 إجمالي المقالات المختارة للنشر: {len(final_articles)} مقالاً ({len(selected_football)} كرة قدم، {لن(selected_others)} رياضات أخرى).")
+    print(f"📊 إجمالي المقالات المختارة للنشر: {len(final_articles)} مقالاً ({len(selected_football)} كرة قدم، {len(selected_others)} رياضات أخرى).")
     
     if not final_articles:
         print("⚠ لم يتم العثور على مقالات جديدة في هذه الدورة.")
@@ -148,12 +139,10 @@ def fetch_and_publish_news():
 
     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    # إرسال رسالة افتتاحية للصحيفة
     intro_message = f"📰 *صحيفة Arena Pulse الشاملة*\nإليكم الموجز الرياضي المتكامل ليوم `{current_time}`\n⚽ (40 كرة قدم ⚡ 20 رياضات متنوعة)\n━━━━━━━━━━━━━━━━━━━"
     send_telegram_message(intro_message)
     time.sleep(2)
     
-    # نشر المقالات تباعاً وبشكل منفرد مع فاصل زمني (3 ثوانٍ) لضمان النقاء وعدم التكدس
     for i, item in enumerate(final_articles, 1):
         message = (
             f"🏅 *مقال ({i}/{len(final_articles)}) - {item['source']}*\n"
@@ -172,7 +161,7 @@ def background_loop():
     while True:
         fetch_and_publish_news()
         print("⏳ انتهت دورة النشر الحالية. بانتظار دورة التحديث القادمة...")
-        time.sleep(2700)  # التحديث كل 45 دقيقة للحفاظ على انتظام النشر
+        time.sleep(2700)
 
 if __name__ == "__main__":
     t_web = threading.Thread(target=run_flask)
