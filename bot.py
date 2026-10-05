@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Live Newspaper Bot is active and running 24/7!"
+    return "Arena Pulse Multi-Source Newspaper Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -42,62 +42,69 @@ def send_telegram_message(text):
 # سجل لحفظ العناوين التي تم نشرها لعدم تكرارها
 sent_news = set()
 
+# قائمة متعددة من المصادر الرياضية لضمان تدفق الأخبار باستمرار
+SPORTS_RSS_SOURCES = [
+    "https://www.filgoal.com/rss/news",
+    "https://www.kooora.com/default.aspx?r=rss",
+    "https://www.yallakora.com/rss/sections",
+    "https://www.aljazeera.net/rss/category/sport",
+    "https://www.skynewsarabia.com/web/rss/sports"
+]
+
 def fetch_live_sports_news():
-    """جلب الأخبار الرياضية الحية عبر خلاصات موثوقة باللغة العربية"""
-    alt_rss_url = "https://www.filgoal.com/rss/news"
+    """المرور على عدة مصادر رياضية لجلب الأخبار الحية والمضمونة"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
     
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-        
-        response = requests.get(alt_rss_url, headers=headers, timeout=15)
-        
-        if response.status_code == 200:
-            feed = feedparser.parse(response.content)
-            if feed.entries:
-                print(f"تم العثور على {len(feed.entries)} خبراً في المصدر.")
-                # فحص أحدث الأنباء
-                for entry in feed.entries[:3]:
-                    news_title = entry.title
-                    news_link = entry.link if hasattr(entry, 'link') else "https://www.filgoal.com"
-                    
-                    if news_title not in sent_news:
-                        sent_news.add(news_title)
-                        current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+    news_published = 0
+    
+    for rss_url in SPORTS_RSS_SOURCES:
+        try:
+            response = requests.get(rss_url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                feed = feedparser.parse(response.content)
+                if feed.entries:
+                    for entry in feed.entries[:2]: # نأخذ أحدث خبرين من كل مصدر نشط
+                        news_title = entry.title
+                        news_link = entry.link if hasattr(entry, 'link') else rss_url
                         
-                        # قالب الجريدة الاحترافي
-                        message = (
-                            f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
-                            f"━━━━━━━━━━━━━━━━━━━\n\n"
-                            f"🚨 **مانشيت عاجل:**\n"
-                            f"📌 *{news_title}*\n\n"
-                            f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
-                            f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
-                            f"━━━━━━━━━━━━━━━━━━━\n"
-                            f"🕒 الإصدار: `{current_time}`\n"
-                            f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
-                            f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
-                        )
-                        
-                        send_telegram_message(message)
-                        time.sleep(3)
-            else:
-                print("⚠️ تنبيه: الخلاصة فارغة حالياً.")
-        else:
-            print(f"⚠️ فشل الاتصال بالمصدر، كود الاستجابة: {response.status_code}")
-            
-    except Exception as e:
-        print("⚠ [خطأ أثناء جلب الأخبار]:", e)
+                        if news_title not in sent_news:
+                            sent_news.add(news_title)
+                            current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+                            
+                            # قالب الجريدة الاحترافي
+                            message = (
+                                f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
+                                f"━━━━━━━━━━━━━━━━━━━\n\n"
+                                f"🚨 **مانشيت عاجل:**\n"
+                                f"📌 *{news_title}*\n\n"
+                                f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
+                                f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
+                                f"━━━━━━━━━━━━━━━━━━━\n"
+                                f"🕒 الإصدار: `{current_time}`\n"
+                                f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
+                                f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
+                            )
+                            
+                            send_telegram_message(message)
+                            news_published += 1
+                            time.sleep(3)
+                            
+                            # إذا نشرنا خبرين في هذه الجولة، نكتفي مؤقتاً لئلا نغرق القناة
+                            if news_published >= 3:
+                                return
+        except Exception as e:
+            print(f"⚠ [تنبيه في المصدر {rss_url}]:", e)
 
 def bot_loop():
-    print("🤖 صحيفة Arena Pulse الرقمية تبدأ بث الأخبار الحية المباشرة...")
+    print("🤖 صحيفة Arena Pulse الرقمية متعددة المصادر تبدأ العمل...")
     
     # فحص وجلب الأخبار فوراً عند التشغيل
     fetch_live_sports_news()
     
     while True:
-        # فحص الأخبار الجديدة كل 10 دقائق
+        # فحص المصادر كل 10 دقائق
         time.sleep(600)
         fetch_live_sports_news()
 
