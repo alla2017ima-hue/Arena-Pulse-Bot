@@ -81,7 +81,7 @@ def fetch_and_publish_news():
     
     for rss_url in SPORTS_RSS_SOURCES:
         try:
-            response = requests.get(rss_url, headers=headers, timeout=8)
+            response = requests.get(rss_url, headers=headers, timeout=5)
             if response.status_code == 200:
                 feed = feedparser.parse(response.content)
                 if feed.entries:
@@ -115,3 +115,42 @@ def fetch_and_publish_news():
             
     if not news_sent:
         available_backup = [n for n in BACKUP_SPORTS_NEWS if n["title"] not in sent_news]
+        if not available_backup:
+            sent_news.clear()
+            available_backup = BACKUP_SPORTS_NEWS
+            
+        news = random.choice(available_backup)
+        sent_news.add(news["title"])
+        current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+        
+        message = (
+            f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🚨 **مانشيت عاجل:**\n"
+            f"📌 *{news['title']}*\n\n"
+            f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
+            f"[اضغط هنا لقراءة التقرير كاملاً]({news['link']})\n\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"🕒 الإصدار: `{current_time}`\n"
+            f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
+            f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
+        )
+        send_telegram_message(message)
+
+def delayed_start():
+    """انتظار استقرار خادم الويب تماماً قبل بدء عملية نشر الأخبار"""
+    time.sleep(5)
+    fetch_and_publish_news()
+    
+    while True:
+        time.sleep(1800)
+        fetch_and_publish_news()
+
+if __name__ == "__main__":
+    # تشغيل خادم فلاسك في الخيط الرئيسي لمنع الإغلاق المبكر
+    t = threading.Thread(target=delayed_start)
+    t.daemon = True
+    t.start()
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
