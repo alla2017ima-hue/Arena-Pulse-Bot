@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse FilGoal Scraper Bot is active and running 24/7!"
+    return "Arena Pulse Clean Scraper Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -43,7 +43,7 @@ def send_telegram_message(text):
 sent_news = set()
 
 def fetch_filgoal_news():
-    """سحب أحدث الأخبار مباشرة من موقع في الجول"""
+    """سحب العناوين الإخبارية الحقيقية والمنظمة فقط من موقع في الجول"""
     global sent_news
     url = "https://www.filgoal.com/"
     
@@ -56,29 +56,34 @@ def fetch_filgoal_news():
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
-            articles = soup.find_all('a', href=True)
+            
+            # استهداف الروابط التي تمثل عناوين أخبار حقيقية وليست جداول نتائج مباريات
+            news_items = []
+            for a_tag in soup.find_all('a', href=True):
+                title = a_tag.get_text().strip()
+                # نتأكد أن النص عبارة عن خبر ذو طول مناسب ولا يحتوي على أرقام نتائج مفككة
+                if len(title) > 40 and '\n' not in title and title not in sent_news:
+                    # استبعاد النصوص التي تبدو كإعلانات أو قوائم قصيرة
+                    if "دوري" in title or "منتخب" in title or "النادي" in title or "الدوري" in title or "الرسمي" in title or "مباريات" in title:
+                        link = a_tag.get('href', '')
+                        if link and not link.startswith('http'):
+                            link = "https://www.filgoal.com" + link
+                        news_items.append((title, link))
             
             published_count = 0
-            for item in articles:
-                text = item.get_text().strip()
-                if len(text) > 30 and text not in sent_news:
-                    link = item.get('href', '')
-                    if link and not link.startswith('http'):
-                        link = "https://www.filgoal.com" + link
-                    elif not link:
-                        link = "https://www.filgoal.com/"
-                        
-                    sent_news.add(text)
+            for title, link in news_items[:3]:
+                if title not in sent_news:
+                    sent_news.add(title)
                     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
                     
-                    # صياغة الرسالة في سطر واحد لتجنب أي أخطاء في الـ f-string
-                    message = f"📰 *جريدة نبض الملاعب | ARENA PULSE* ⚽\n━━━━━━━━━━━━━━━━━━━\n\n🚨 *مانشيت عاجل (من FilGoal):*\n📌 *{text}*\n\n🔗 *التفاصيل:*\n[اضغط هنا لقراءة الخبر من المصدر]({link})\n\n━━━━━━━━━━━━━━━━━━━\n🕒 الإصدار: `{current_time}`\n📢 *تحت رعاية شبكة Arena Pulse الرياضية*"
+                    # تنسيق نظيف، مضغوط، وخالٍ تماماً من الفراغات المزعجة
+                    message = f"📰 *جريدة نبض الملاعب | ARENA PULSE* ⚽\n━━━━━━━━━━━━━━━━━━━\n🚨 *الخبر الرياضي:*\n📌 *{title}*\n\n🔗 *التفاصيل:*\n[اضغط هنا لقراءة الخبر كاملأً الواقع]({link})\n━━━━━━━━━━━━━━━━━━━\n🕒 الإصدار: `{current_time}`\n📢 *شبكة Arena Pulse الرياضية*"
                     
                     send_telegram_message(message)
                     published_count += 1
                     time.sleep(3)
                     
-                    if published_count >= 2:
+                    if published_count >= 1: # نشر خبر واحد نظيف ومرتب في كل دورة لتجنب الازدحام
                         break
         else:
             print(f"⚠ [خطأ HTTP]: رمز الاستجابة {response.status_code}")
@@ -91,7 +96,7 @@ def delayed_start():
     fetch_filgoal_news()
     
     while True:
-        time.sleep(1800)
+        time.sleep(1800) # فحص كل نصف ساعة
         fetch_filgoal_news()
 
 if __name__ == "__main__":
