@@ -68,9 +68,9 @@ def get_priority_score(title):
 sent_news = set()
 
 def fetch_and_publish_news():
-    """جلب 40 مقال كرة قدم و 20 مقال رياضات أخرى، تنظيفها، ونشرها متسلسلة"""
+    """جلب 5 مقالات مختارة بعناية ونشرها كل ساعة"""
     global sent_news
-    print("🚀 بدء دورة جلب الصحيفة الشاملة (60 مقالاً)...")
+    print("🚀 بدء دورة جلب الموجز الساعي (5 مقالات)...")
     
     sources = [
         {"name": "FilGoal", "url": "https://www.filgoal.com/", "domain": "https://www.filgoal.com"},
@@ -85,8 +85,7 @@ def fetch_and_publish_news():
         'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
     }
     
-    football_articles = []
-    other_articles = []
+    all_articles = []
     
     for source in sources:
         try:
@@ -115,37 +114,30 @@ def fetch_and_publish_news():
                         }
                         
                         sent_news.add(title)
-                        
-                        if classify_sport(title) == "football":
-                            football_articles.append(article_data)
-                        else:
-                            other_articles.append(article_data)
+                        all_articles.append(article_data)
                             
         except Exception as e:
             print(f"⚠ تعذر السحب من {source['name']}: {e}")
             
-    football_articles.sort(key=lambda x: x["priority"], reverse=True)
-    other_articles.sort(key=lambda x: x["priority"], reverse=True)
+    # ترتيب المقالات حسب الأولوية لاختيار أهم 5 أخبار
+    all_articles.sort(key=lambda x: x["priority"], reverse=True)
+    final_articles = all_articles[:5]
     
-    selected_football = football_articles[:40]
-    selected_others = other_articles[:20]
-    
-    final_articles = selected_football + selected_others
-    print(f"📊 إجمالي المقالات المختارة للنشر: {len(final_articles)} مقالاً.")
+    print(f"📊 إجمالي المقالات المختارة للنشر هذه الساعة: {len(final_articles)} مقالات.")
     
     if not final_articles:
-        print("⚠ لم يتم العثور على مقالات جديدة في هذه الدورة.")
+        print("⚠ لم يتم العثور على مقالات جديدة في هذه الساعة.")
         return
 
     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    intro_message = f"📰 *صحيفة Arena Pulse الشاملة*\nإليكم الموجز الرياضي المتكامل ليوم `{current_time}`\n⚽ (40 كرة قدم ⚡ 20 رياضات متنوعة)\n━━━━━━━━━━━━━━━━━━━"
+    intro_message = f"📰 *موجز Arena Pulse الساعي*\nأبرز 5 محطات رياضية لهذا الساعة (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
     send_telegram_message(intro_message)
     time.sleep(2)
     
     for i, item in enumerate(final_articles, 1):
         message = (
-            f"🏅 *مقال ({i}/{len(final_articles)}) - {item['source']}*\n"
+            f"🏅 *خبر ({i}/5) - {item['source']}*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"📌 *{item['title']}*\n\n"
             f"🔗 *التفاصيل الكاملة:*\n"
@@ -156,12 +148,12 @@ def fetch_and_publish_news():
         time.sleep(3)
 
 def background_loop():
-    """حلقة دورية لتحديث ونشر الصحيفة كل 45 دقيقة"""
+    """حلقة دورية لتحديث ونشر 5 مقالات كل ساعة تماماً (3600 ثانية)"""
     time.sleep(5)
     while True:
         fetch_and_publish_news()
-        print("⏳ انتهت دورة النشر الحالية. بانتظار دورة التحديث القادمة...")
-        time.sleep(2700)
+        print("⏳ انتهت دورة النشر الساعية. بانتظار دورة الساعة القادمة...")
+        time.sleep(3600)
 
 if __name__ == "__main__":
     t_web = threading.Thread(target=run_flask)
