@@ -42,11 +42,10 @@ def send_telegram_message(text):
 # سجل لحفظ العناوين التي تم نشرها لعدم تكرارها
 sent_news = set()
 
-# مصادر RSS حية ومستقرة ومفتوحة لجلب الأخبار الرياضية العالمية والعربية
+# مصادر RSS حية ومستقرة ومفتوحة لجلب الأخبار الرياضية
 SPORTS_RSS_SOURCES = [
     "https://www.aljazeera.net/rss/category/sport",
-    "https://www.skynewsarabia.com/web/rss/sports",
-    "https://www.kooora.com/default.aspx?r=rss" # تم ترك رابط كورة الاحتياطي ضمن المصادر المتعددة
+    "https://www.skynewsarabia.com/web/rss/sports"
 ]
 
 def fetch_live_sports_news():
@@ -78,4 +77,37 @@ def fetch_live_sports_news():
                                 f"━━━━━━━━━━━━━━━━━━━\n\n"
                                 f"🚨 **مانشيت عاجل:**\n"
                                 f"📌 *{news_title}*\n\n"
-                               
+                                f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
+                                f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
+                                f"━━━━━━━━━━━━━━━━━━━\n"
+                                f"🕒 الإصدار: `{current_time}`\n"
+                                f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
+                                f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
+                            )
+                            
+                            send_telegram_message(message)
+                            news_published += 1
+                            time.sleep(3)
+                            
+                            if news_published >= 2:
+                                return
+        except Exception as e:
+            print(f"⚠ [تنبيه في المصدر]:", e)
+
+def delayed_start():
+    """بدء التشغيل مع ضمان استقرار السيرفر"""
+    time.sleep(5)
+    fetch_live_sports_news()
+    
+    while True:
+        # فحص وتحديث الأخبار كل 20 دقيقة
+        time.sleep(1200)
+        fetch_live_sports_news()
+
+if __name__ == "__main__":
+    t = threading.Thread(target=delayed_start)
+    t.daemon = True
+    t.start()
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
