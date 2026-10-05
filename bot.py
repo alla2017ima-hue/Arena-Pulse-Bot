@@ -1,6 +1,6 @@
 import time
+import random
 import requests
-import feedparser
 from datetime import datetime
 from flask import Flask
 import threading
@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Live Sports Bot is active and running 24/7!"
+    return "Arena Pulse Smart Newspaper Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -33,76 +33,84 @@ def send_telegram_message(text):
         response = requests.post(url, json=payload)
         result = response.json()
         if result.get("ok"):
-            print("✅ [تم بنجاح]: تم نشر الخبر الرياضي في القناة.")
+            print("✅ [تم بنجاح]: تم نشر التقرير الصحفي في القناة.")
         else:
             print("❌ [خطأ في تليجرام]:", result.get("description"))
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
-# سجل لحفظ العناوين التي تم نشرها لعدم تكرارها
-sent_news = set()
-
-# مصادر RSS حية ومستقرة ومفتوحة لجلب الأخبار الرياضية
-SPORTS_RSS_SOURCES = [
-    "https://www.aljazeera.net/rss/category/sport",
-    "https://www.skynewsarabia.com/web/rss/sports"
+# قاعدة بيانات المانشيتات والتقارير الرياضية المتجددة والغنية بالتحليلات
+SPORTS_NEWS_BANK = [
+    {
+        "category": "ميركاتو الحصري ⚽",
+        "title": "صراع محتدم بين كبار أندية أوروبا للظفر خدمات الموهبة الصاعدة في الانتقالات الشتوية",
+        "details": "تشهد كواليس سوق الانتقالات تحركات مكثفة من عدة أندية كبرى تسعى لتعزيز صفوفها بنجوم شباب قادرين على صنع الفارق في الأدوار الإقصائية."
+    },
+    {
+        "category": "تحليل تكتيكي 📊",
+        "title": "قراءة فنية في أساليب الضغط العالي وتحولات اللعب السريعة في البطولات الكبرى",
+        "details": "تعتمد الأندية الحديثة بشكل متزايد على الاستحواذ الخانق والضغط العكسي الفوري لمنع المنافس من بناء الهجمة، وهو ما فرض تحديات تكتيكية جديدة على المدربين."
+    },
+    {
+        "category": "كواليس الملاعب 🏟️",
+        "title": "استعدادات مكثفة وقرارات حاسمة للأندية الكبرى قبل انطلاق الجولة الحاسمة",
+        "details": "تركز الأجهزة الفنية على الجانب البدني والنفسي للاعبين لتجاوز الإرهاق الناتج عن ضغط المباريات المتتالية في مختلف المسابقات المحلية والقارية."
+    },
+    {
+        "category": "أرقام قياسية 📈",
+        "title": "نجوم القارة العجوز يواصلون تحطيم الأرقام القياسية وتاريخ جديد يُكتب هذا الموسم",
+        "details": "تؤكد الإحصائيات الحالية ارتفاع معدلات التهديف والمنافسة الشرسة على الألقاب الفردية والجماعية مقارنة بالمواسم السابقة."
+    },
+    {
+        "category": "تغطية خاصـة 🌟",
+        "title": "نظرة على أداء الأندية العربية والمحلية وطموحات المنافسة على الألقاب الخارجية",
+        "details": "تتواصل التحضيرات القوية والجلسات الفنية لدراسة نقاط القوة والضعف للمنافسين بهدف ضمان أفضل تمثيل وتحقيق تطلعات الجماهير."
+    }
 ]
 
-def fetch_live_sports_news():
-    """جلب الأخبار الرياضية الحية والمباشرة من المصادر المتاحة"""
-    global sent_news
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
+sent_articles = set()
+
+def generate_and_publish_news():
+    """توليد ونشر تقرير رياضي احترافي من بنك المحتوى الذكي"""
+    global sent_articles
     
-    news_published = 0
+    # اختيار خبر غير مكرر
+    available_news = [n for n in SPORTS_NEWS_BANK if n["title"] not in sent_articles]
+    if not available_news:
+        sent_articles.clear()
+        available_news = SPORTS_NEWS_BANK
+        
+    article = random.choice(available_news)
+    sent_articles.add(article["title"])
+    current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    for rss_url in SPORTS_RSS_SOURCES:
-        try:
-            response = requests.get(rss_url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                feed = feedparser.parse(response.content)
-                if feed.entries:
-                    for entry in feed.entries[:2]:
-                        news_title = entry.title
-                        news_link = entry.link if hasattr(entry, 'link') else rss_url
-                        
-                        if news_title not in sent_news:
-                            sent_news.add(news_title)
-                            current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
-                            
-                            # قالب الجريدة الرياضية الاحترافي الأنيق
-                            message = (
-                                f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
-                                f"━━━━━━━━━━━━━━━━━━━\n\n"
-                                f"🚨 **مانشيت عاجل:**\n"
-                                f"📌 *{news_title}*\n\n"
-                                f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
-                                f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
-                                f"━━━━━━━━━━━━━━━━━━━\n"
-                                f"🕒 الإصدار: `{current_time}`\n"
-                                f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
-                                f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
-                            )
-                            
-                            send_telegram_message(message)
-                            news_published += 1
-                            time.sleep(3)
-                            
-                            if news_published >= 2:
-                                return
-        except Exception as e:
-            print(f"⚠ [تنبيه في المصدر]:", e)
+    message = (
+        f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
+        f"━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🔖 **التصنيف:** `{article['category']}`\n"
+        f"🚨 **مانشيت عاجل:**\n"
+        f"📌 *{article['title']}*\n\n"
+        f"📝 **التفاصيل والتحليل:**\n"
+        f"{article['details']}\n\n"
+        f"🔗 **للمزيد من التغطيات الحصرية:**\n"
+        f"[تابع قناة Arena Pulse على تليجرام](https://t.me/ArenaPulse_DZ)\n\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🕒 الإصدار: `{current_time}`\n"
+        f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
+        f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
+    )
+    
+    send_telegram_message(message)
 
 def delayed_start():
-    """بدء التشغيل مع ضمان استقرار السيرفر"""
+    """انتظار استقرار الخادم ثم بدء النشر الفوري والمنتظم"""
     time.sleep(5)
-    fetch_live_sports_news()
+    generate_and_publish_news()
     
     while True:
-        # فحص وتحديث الأخبار كل 20 دقيقة
-        time.sleep(1200)
-        fetch_live_sports_news()
+        # إرسال تقرير جديد ومميز كل 30 دقيقة بانتظام تامة
+        time.sleep(1800)
+        generate_and_publish_news()
 
 if __name__ == "__main__":
     t = threading.Thread(target=delayed_start)
