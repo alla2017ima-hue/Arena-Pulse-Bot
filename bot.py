@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Multi-Source Smart Bot is active and running 24/7!"
+    return "Arena Pulse Debug Scraper Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -42,96 +42,73 @@ def send_telegram_message(text):
 # سجل لمنع تكرار نشر الأخبار
 sent_news = set()
 
-def get_priority_score(title):
-    """منح نقاط أولوية للخبر بناءً على أهميته وكونه حینياً"""
-    score = 1
-    t = title.lower()
-    # أخبار النهائيات، المباريات الكبرى والأحداث الحينية تأخذ أعلى أولوية
-    if any(k in t for k in ["نهائي", "عاجل", "رسمي", "كأس", "دوري أبطال", "مباراة", "الكلبشات"]):
-        score += 5
-    if any(k in t for k in ["هدف", "تقدم", "تعادل", "تشكيل"]):
-        score += 4
-    if any(k in t for k in ["ملخص", "تصريحات", "مدرب"]):
-        score += 2
-    return score
-
 def fetch_multi_source_news():
-    """سحب وتنقية وترتيب الأخبار من عدة مواقع رئيسية حسب الأولوية"""
+    """سحب الأخبار بمرونة فائقة مع طباعة النتائج في الـ Logs للتشخيص"""
     global sent_news
     
-    # قائمة المواقع الرياضية المستهدفة
-    sources = [
-        {"name": "FilGoal", "url": "https://www.filgoal.com/", "domain": "https://www.filgoal.com"},
-        {"name": "Kooora / أرشيف رياضي", "url": "https://www.kooora.com/", "domain": "https://www.kooora.com"}
-    ]
-    
+    url = "https://www.filgoal.com/"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
     }
     
-    all_fetched_items = []
-    
-    for source in sources:
-        try:
-            response = requests.get(source["url"], headers=headers, timeout=12)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                for a_tag in soup.find_all('a', href=True):
-                    title = a_tag.get_text().strip()
-                    # تنقية النصوص والتأكد من أنها عناوين حقيقية خالية من الفراغات المزعجة
-                    if len(title) > 35 and '\n' not in title and title not in sent_news:
-                        link = a_tag.get('href', '')
-                        if link and not link.startswith('http'):
-                            link = source["domain"] + link
-                        elif not link:
-                            link = source["url"]
-                            
-                        priority = get_priority_score(title)
-                        all_fetched_items.append({
-                            "title": title,
-                            "link": link,
-                            "source": source["name"],
-                            "priority": priority
-                        })
-        except Exception as e:
-            print(f"⚠ [تنبيه في المصدر {source['name']}]: {e}")
+    try:
+        print(جارٍ الاتصال بموقع FilGoal لجلب الأخبار...)
+        response = requests.get(url, headers=headers, timeout=15)
+        print(f"حالة الاتصال (Status Code): {response.status_code}")
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
             
-    # ترتيب الأخبار تنازلياً حسب الأولوية (الأكثر أهمية وحينية أولاً)
-    all_fetched_items.sort(key=lambda x: x["priority"], reverse=True)
-    
-    published_count = 0
-    for item in all_fetched_items:
-        if item["title"] not in sent_news:
-            sent_news.add(item["title"])
-            current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+            # البحث عن جميع عناوين الروابط في الصفحة الرئيسية
+            links = soup.find_all('a', href=True)
+            print(f"تم العثور على {len(links)} رابط في الصفحة.")
             
-            message = (
-                f"📰 *جريدة نبض الملاعب | ARENA PULSE* ⚽\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"🚨 *مانشيت عاجل (من {item['source']}):*\n"
-                f"📌 *{item['title']}*\n\n"
-                f"🔗 *التفاصيل الحصرية:*\n"
-                f"[اضغط هنا لقراءة الخبر كاملاً]({item['link']})\n\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"🕒 الإصدار: `{current_time}`\n"
-                f"📢 *شبكة Arena Pulse الرياضية*"
-            )
-            
-            send_telegram_message(message)
-            published_count += 1
-            time.sleep(3)
-            
-            if published_count >= 1: # نشر الخبر الأهم حالياً بدقة
-                break
+            published_count = 0
+            for a_tag in links:
+                title = a_tag.get_text().strip()
+                # جعل الشرط أكثر مرونة لالتقاط العناوين الرياضية المتاحة
+                if len(title) > 20 and title not in sent_news:
+                    link = a_tag.get('href', '')
+                    if link and not link.startswith('http'):
+                        link = "https://www.filgoal.com" + link
+                    elif not link:
+                        link = url
+                        
+                    print(f"✔ تم العثور على خبر صالح: {title[:50]}...")
+                    sent_news.add(title)
+                    current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+                    
+                    message = (
+                        f"📰 *جريدة نبض الملاعب | ARENA PULSE* ⚽\n"
+                        f"━━━━━━━━━━━━━━━━━━━\n"
+                        f"🚨 *مانشيت عاجل (من FilGoal):*\n"
+                        f"📌 *{title}*\n\n"
+                        f"🔗 *التفاصيل:*\n"
+                        f"[اضغط هنا لقراءة الخبر كاملاً]({link})\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━\n"
+                        f"🕒 الإصدار: `{current_time}`\n"
+                        f"📢 *شبكة Arena Pulse الرياضية*"
+                    )
+                    
+                    send_telegram_message(message)
+                    published_count += 1
+                    time.sleep(3)
+                    
+                    if published_count >= 1: # نشر خبر واحد للتأكد من عمل النظام فوراً
+                        break
+        else:
+            print(f"⚠ خطأ في الاستجابة من الموقع: {response.status_code}")
+    except Exception as e:
+        print(f"⚠ خطأ أثناء جلب الأخبار: {e}")
 
 def delayed_start():
-    """بدء التشغيل وجدولة الفحص المستمر"""
+    """بدء التشغيل الفوري بعد الإقلاع"""
     time.sleep(3)
     fetch_multi_source_news()
     
     while True:
-        time.sleep(1200) # فحص وتحديث الأخبار والترتيب كل 20 دقيقة
+        time.sleep(1800)
         fetch_multi_source_news()
 
 if __name__ == "__main__":
