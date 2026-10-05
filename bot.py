@@ -47,7 +47,6 @@ def fetch_filgoal_news():
     global sent_news
     url = "https://www.filgoal.com/"
     
-    # ترويسة متصفح حقيقية لمنع الحظر
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
@@ -57,20 +56,12 @@ def fetch_filgoal_news():
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
+            articles = soup.find_all('a', href=True)
             
-            # البحث عن العناوين الرياضية في الموقع (عناوين المقالات والخبر العاجل)
-            articles = soup.find_all(['h2', 'h3', 'a'], class_=['title', 'news-title'])
-            
-            # إذا لم يتم العثور على الكلاسات المحددة، نبحث عن أي روابط تحتوي على عناوين أخبار
-            if not articles:
-                articles = soup.find_all('a', href=True)
-                
             published_count = 0
             for item in articles:
                 text = item.get_text().strip()
-                # التحقق من أن النص خبر رياضي ذو طول مناسب
-                if len(text) > 25 and text not in sent_news:
-                    # محاولة استخراج الرابط إن وجد
+                if len(text) > 30 and text not in sent_news:
                     link = item.get('href', '')
                     if link and not link.startswith('http'):
                         link = "https://www.filgoal.com" + link
@@ -80,7 +71,33 @@ def fetch_filgoal_news():
                     sent_news.add(text)
                     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
                     
-                    message = (
-                        f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
-                        f"━━━━━━━━━━━━━━━━━━━\n\n"
-                        f"
+                    # صياغة الرسالة في سطر واحد لتجنب أي أخطاء في الـ f-string
+                    message = f"📰 *جريدة نبض الملاعب | ARENA PULSE* ⚽\n━━━━━━━━━━━━━━━━━━━\n\n🚨 *مانشيت عاجل (من FilGoal):*\n📌 *{text}*\n\n🔗 *التفاصيل:*\n[اضغط هنا لقراءة الخبر من المصدر]({link})\n\n━━━━━━━━━━━━━━━━━━━\n🕒 الإصدار: `{current_time}`\n📢 *تحت رعاية شبكة Arena Pulse الرياضية*"
+                    
+                    send_telegram_message(message)
+                    published_count += 1
+                    time.sleep(3)
+                    
+                    if published_count >= 2:
+                        break
+        else:
+            print(f"⚠ [خطأ HTTP]: رمز الاستجابة {response.status_code}")
+    except Exception as e:
+        print(f"⚠ [خطأ في جلب الموقع]: {e}")
+
+def delayed_start():
+    """بدء التشغيل وجدولة الفحص المستمر"""
+    time.sleep(3)
+    fetch_filgoal_news()
+    
+    while True:
+        time.sleep(1800)
+        fetch_filgoal_news()
+
+if __name__ == "__main__":
+    t = threading.Thread(target=delayed_start)
+    t.daemon = True
+    t.start()
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
