@@ -1,6 +1,6 @@
 import time
-import random
 import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
 from flask import Flask
 import threading
@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Smart Newspaper Bot is active and running 24/7!"
+    return "Arena Pulse FilGoal Scraper Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -33,87 +33,54 @@ def send_telegram_message(text):
         response = requests.post(url, json=payload)
         result = response.json()
         if result.get("ok"):
-            print("✅ [تم بنجاح]: تم نشر التقرير الصحفي في القناة.")
+            print("✅ [تم بنجاح]: تم نشر الخبر الرياضي في القناة.")
         else:
             print("❌ [خطأ في تليجرام]:", result.get("description"))
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
-# قاعدة بيانات المانشيتات والتقارير الرياضية المتجددة
-SPORTS_NEWS_BANK = [
-    {
-        "category": "ميركاتو الحصري ⚽",
-        "title": "صراع محتدم بين كبار أندية أوروبا للظفر خدمات الموهبة الصاعدة في الانتقالات الشتوية",
-        "details": "تشهد كواليس سوق الانتقالات تحركات مكثفة من عدة أندية كبرى تسعى لتعزيز صفوفها بنجوم شباب قادرين على صنع الفارق في الأدوار الإقصائية."
-    },
-    {
-        "category": "تحليل تكتيكي 📊",
-        "title": "قراءة فنية في أساليب الضغط العالي وتحولات اللعب السريعة في البطولات الكبرى",
-        "details": "تعتمد الأندية الحديثة بشكل متزايد على الاستحواذ الخانق والضغط العكسي الفوري لمنع المنافس من بناء الهجمة، وهو ما فرض تحديات تكتيكية جديدة على المدربين."
-    },
-    {
-        "category": "كواليس الملاعب 🏟️",
-        "title": "استعدادات مكثفة وقرارات حاسمة للأندية الكبرى قبل انطلاق الجولة الحاسمة",
-        "details": "تركز الأجهزة الفنية على الجانب البدني والنفسي للاعبين لتجاوز الإرهاق الناتج عن ضغط المباريات المتتالية في مختلف المسابقات المحلية والقارية."
-    },
-    {
-        "category": "أرقام قياسية 📈",
-        "title": "نجوم القارة العجوز يواصلون تحطيم الأرقام القياسية وتاريخ جديد يُكتب هذا الموسم",
-        "details": "تؤكد الإحصائيات الحالية ارتفاع معدلات التهديف والمنافسة الشرسة على الألقاب الفردية والجماعية مقارنة بالمواسم السابقة."
-    },
-    {
-        "category": "تغطية خاصـة 🌟",
-        "title": "نظرة على أداء الأندية العربية والمحلية وطموحات المنافسة على الألقاب الخارجية",
-        "details": "تتواصل التحضيرات القوية والجلسات الفنية لدراسة نقاط القوة والضعف للمنافسين بهدف ضمان أفضل تمثيل وتحقيق تطلعات الجماهير."
+# سجل لحفظ العناوين التي نشرت لعدم تكرارها
+sent_news = set()
+
+def fetch_filgoal_news():
+    """سحب أحدث الأخبار مباشرة من موقع في الجول"""
+    global sent_news
+    url = "https://www.filgoal.com/"
+    
+    # ترويسة متصفح حقيقية لمنع الحظر
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
     }
-]
-
-sent_articles = set()
-
-def generate_and_publish_news():
-    """توليد ونشر تقرير رياضي احترافي من بنك المحتوى الذكي"""
-    global sent_articles
     
-    available_news = [n for n in SPORTS_NEWS_BANK if n["title"] not in sent_articles]
-    if not available_news:
-        sent_articles.clear()
-        available_news = SPORTS_NEWS_BANK
-        
-    article = random.choice(available_news)
-    sent_articles.add(article["title"])
-    current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
-    
-    message = (
-        f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
-        f"━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🔖 **التصنيف:** `{article['category']}`\n"
-        f"🚨 **مانشيت عاجل:**\n"
-        f"📌 *{article['title']}*\n\n"
-        f"📝 **التفاصيل والتحليل:**\n"
-        f"{article['details']}\n\n"
-        f"🔗 **للمزيد من التغطيات الحصرية:**\n"
-        f"[تابع قناة Arena Pulse على تليجرام](https://t.me/ArenaPulse_DZ)\n\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"🕒 الإصدار: `{current_time}`\n"
-        f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
-        f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
-    )
-    
-    send_telegram_message(message)
-
-def delayed_start():
-    """النشر الفوري بعد الإقلاع بقليل ثم جدولة التحديثات"""
-    time.sleep(2)
-    generate_and_publish_news()
-    
-    while True:
-        time.sleep(1800)
-        generate_and_publish_news()
-
-if __name__ == "__main__":
-    t = threading.Thread(target=delayed_start)
-    t.daemon = True
-    t.start()
-    
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # البحث عن العناوين الرياضية في الموقع (عناوين المقالات والخبر العاجل)
+            articles = soup.find_all(['h2', 'h3', 'a'], class_=['title', 'news-title'])
+            
+            # إذا لم يتم العثور على الكلاسات المحددة، نبحث عن أي روابط تحتوي على عناوين أخبار
+            if not articles:
+                articles = soup.find_all('a', href=True)
+                
+            published_count = 0
+            for item in articles:
+                text = item.get_text().strip()
+                # التحقق من أن النص خبر رياضي ذو طول مناسب
+                if len(text) > 25 and text not in sent_news:
+                    # محاولة استخراج الرابط إن وجد
+                    link = item.get('href', '')
+                    if link and not link.startswith('http'):
+                        link = "https://www.filgoal.com" + link
+                    elif not link:
+                        link = "https://www.filgoal.com/"
+                        
+                    sent_news.add(text)
+                    current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+                    
+                    message = (
+                        f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
+                        f"━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"
