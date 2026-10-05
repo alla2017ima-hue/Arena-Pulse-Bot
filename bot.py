@@ -53,7 +53,7 @@ def fetch_multi_source_news():
     }
     
     try:
-        print(جارٍ الاتصال بموقع FilGoal لجلب الأخبار...)
+        print("جارٍ الاتصال بموقع FilGoal لجلب الأخبار...")
         response = requests.get(url, headers=headers, timeout=15)
         print(f"حالة الاتصال (Status Code): {response.status_code}")
         
