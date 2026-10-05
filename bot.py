@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Flask
 import threading
 import os
+import re
 
 # إعدادات البوت ومعرف القناة
 BOT_TOKEN = "8587695169:AAEcrrxE4ONNfipP2iJP1O0DuaLizKcNvSg"
@@ -15,7 +16,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Complete Scraper Bot is active and running 24/7!"
+    return "Arena Pulse Pro Scraper Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -32,12 +33,31 @@ def send_telegram_message(text):
     try:
         response = requests.post(url, json=payload)
         result = response.json()
-        if result.get("ok"):
-            print("✅ [تم بنجاح]: تم نشر الخبر في القناة.")
-        else:
+        if not result.get("ok"):
             print("❌ [خطأ في تيليجرام]:", result.get("description"))
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
+
+def clean_and_format_title(title):
+    """دالة ذكية لتنظيف النصوص المتلاصقة وإضافة المسافات والفواصل تلقائياً"""
+    # إزالة الأسطر الزائدة والمسافات المتعددة
+    title = re.sub(r'\s+', ' ', title).strip()
+    
+    # معالجة الكلمات الملتصقة الناتجة عن جداول النتائج (مثل تكرار الأسماء والأرقام)
+    # إضافة مسافة قبل الأرقام إذا كانت ملتصقة بحروف
+    title = re.sub(r'([؍؞،؛؟!\.\٬٪ٱإأآةيواو])([^\s\d])', r'\1 \2', title)
+    title = re.sub(r'([^\s\d])(\d)', r'\1 \2', title)
+    title = re.sub(r'(\d)([^\s\d])', r'\1 \2', title)
+    
+    return title
+
+def classify_sport(title):
+    """تصنيف المقال هل هو كرة قدم أم رياضة أخرى"""
+    t = title.lower()
+    football_keywords = ["كرة", "مباراة", "دوري", "هدف", "كأس", "ريال", "برشلونة", "ميسي", "رونالدو", "ملعب", "مدرب", "دوري أبطال", "الدوري", "فريق", "منتخب"]
+    if any(k in t for k in football_keywords):
+        return "football"
+    return "other_sports"
 
 def get_priority_score(title):
     """منح نقاط أولوية للخبر لاختيار المانشيتات الكبرى"""
@@ -45,7 +65,7 @@ def get_priority_score(title):
     t = title.lower()
     if any(k in t for k in ["نهائي", "عاجل", "رسمي", "كأس", "دوري أبطال", "ملعب", "باريس", "برشلونة", "ريال مدريد"]):
         score += 5
-    if any(k in t for k in ["هدف", "مباراة", "ترتيب", "تشكيل"]):
+    if any(k in t for k in ["هدف", "مباراة", "ترتيب", "تشكيل", "نتيجة"]):
         score += 3
     return score
 
@@ -53,11 +73,10 @@ def get_priority_score(title):
 sent_news = set()
 
 def fetch_and_publish_news():
-    """جلب 5 مقالات من 5 مواقع كبرى، فلترتها، ونشرها منفردة ومتسلسلة"""
+    """جلب 40 مقال كرة قدم و 20 مقال رياضات أخرى، تنظيفها، ونشرها متسلسلة"""
     global sent_news
-    print("🚀 بدء عملية جلب حصاد الأخبار الرياضية...")
+    print("🚀 بدء دورة جلب الصحيفة الشاملة (60 مقالاً)...")
     
-    # تحديد 5 مصادر رياضية متنوعة
     sources = [
         {"name": "FilGoal", "url": "https://www.filgoal.com/", "domain": "https://www.filgoal.com"},
         {"name": "Kooora", "url": "https://www.kooora.com/", "domain": "https://www.kooora.com"},
@@ -71,7 +90,8 @@ def fetch_and_publish_news():
         'Accept-Language': 'ar,en-US;q=0.9,en;q=0.8'
     }
     
-    all_articles = []
+    football_articles = []
+    other_articles = []
     
     for source in sources:
         try:
@@ -79,12 +99,13 @@ def fetch_and_publish_news():
             response = requests.get(source["url"], headers=headers, timeout=12)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
-                source_count = 0
                 
                 for a_tag in soup.find_all('a', href=True):
-                    title = a_tag.get_text().strip()
-                    # تنقية العنوان والتأكد أنه خبر حقيقي وليس مجرد زر أو رابط قصير
-                    if len(title) > 25 and '\n' not in title and title not in sent_news:
+                    raw_title = a_tag.get_text()
+                    title = clean_and_format_title(raw_title)
+                    
+                    # التحقق من جودة العنوان وطوله وأنه غير مكرر
+                    if len(title) > 20 and title not in sent_news:
                         link = a_tag.get('href', '')
                         if link and not link.startswith('http'):
                             link = source["domain"] + link
@@ -92,41 +113,50 @@ def fetch_and_publish_news():
                             link = source["url"]
                             
                         priority = get_priority_score(title)
-                        all_articles.append({
+                        article_data = {
                             "title": title,
                             "link": link,
                             "source": source["name"],
                             "priority": priority
-                        })
+                        }
+                        
                         sent_news.add(title)
-                        source_count += 1
-                        if source_count >= 5:  # أخذ 5 مقالات كحد أقصى من كل موقع
-                            break
+                        
+                        # تصنيف المقال بناءً على محتواه
+                        if classify_sport(title) == "football":
+                            football_articles.append(article_data)
+                        else:
+                            other_articles.append(article_data)
+                            
         except Exception as e:
             print(f"⚠ تعذر السحب من {source['name']}: {e}")
             
-    if not all_articles:
-        print("⚠ لم يتم العثور على أخباد جديدة في هذه الدورة.")
+    # ترتيب المقالات حسب الأولوية
+    football_articles.sort(key=lambda x: x["priority"], reverse=True)
+    other_articles.sort(key=lambda x: x["priority"], reverse=True)
+    
+    # اختيار العدد المطلوب: 40 كرة قدم + 20 رياضة أخرى
+    selected_football = football_articles[:40]
+    selected_others = other_articles[:20]
+    
+    final_articles = selected_football + selected_others
+    print(f"📊 إجمالي المقالات المختارة للنشر: {len(final_articles)} مقالاً ({len(selected_football)} كرة قدم، {لن(selected_others)} رياضات أخرى).")
+    
+    if not final_articles:
+        print("⚠ لم يتم العثور على مقالات جديدة في هذه الدورة.")
         return
 
-    # ترتيب جميع المقالات حسب الأولوية والأهمية الكبرى
-    all_articles.sort(key=lambda x: x["priority"], reverse=True)
-    
-    # اختيار أهم المقالات للنشر الفوري
-    top_articles = all_articles[:15]
-    print(f"📊 تم اختيار أفضل {len(top_articles)} خبر رئيسي للنشر.")
-    
     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    # إرسال رسالة افتتاحية
-    intro_message = f"📰 *شبكة Arena Pulse الرياضية*\nإليكم الموجز الإخباري الحالي (`{current_time}`):\n━━━━━━━━━━━━━━━━━━━"
+    # إرسال رسالة افتتاحية للصحيفة
+    intro_message = f"📰 *صحيفة Arena Pulse الشاملة*\nإليكم الموجز الرياضي المتكامل ليوم `{current_time}`\n⚽ (40 كرة قدم ⚡ 20 رياضات متنوعة)\n━━━━━━━━━━━━━━━━━━━"
     send_telegram_message(intro_message)
     time.sleep(2)
     
-    # نشر كل خبر منفرد ومستقل عن الآخر مع فاصل زمني (4 ثوانٍ)
-    for i, item in enumerate(top_articles, 1):
+    # نشر المقالات تباعاً وبشكل منفرد مع فاصل زمني (3 ثوانٍ) لضمان النقاء وعدم التكدس
+    for i, item in enumerate(final_articles, 1):
         message = (
-            f"⚽ *خبر ({i}/{len(top_articles)}) - {item['source']}*\n"
+            f"🏅 *مقال ({i}/{len(final_articles)}) - {item['source']}*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"📌 *{item['title']}*\n\n"
             f"🔗 *التفاصيل الكاملة:*\n"
@@ -134,27 +164,24 @@ def fetch_and_publish_news():
             f"📢 *Arena Pulse | نبض الملاعب*"
         )
         send_telegram_message(message)
-        time.sleep(4)
+        time.sleep(3)
 
 def background_loop():
-    """حلقة تشغيل دورية لجلب الأخبار كل فترة زمنية بدون قيود جدول زمني معقد"""
-    time.sleep(5)  # انتظار قصير بعد تشغيل السيرفر
+    """حلقة دورية لتحديث ونشر الصحيفة كل 45 دقيقة"""
+    time.sleep(5)
     while True:
         fetch_and_publish_news()
-        print("⏳ انتهاء دورة الجلب الحالية. الانتظار لدورة التحديث القادمة...")
-        time.sleep(1800)  # إعادة الجلب تلقائياً كل 30 دقيقة
+        print("⏳ انتهت دورة النشر الحالية. بانتظار دورة التحديث القادمة...")
+        time.sleep(2700)  # التحديث كل 45 دقيقة للحفاظ على انتظام النشر
 
 if __name__ == "__main__":
-    # تشغيل خادم الويب على خيط مستقل لإبقاء الخدمة حية على Render
     t_web = threading.Thread(target=run_flask)
     t_web.daemon = True
     t_web.start()
     
-    # تشغيل حلقة الجلب في الخلفية لتجربة العمل الفوري والمستمر
     t_loop = threading.Thread(target=background_loop)
     t_loop.daemon = True
     t_loop.start()
     
-    # الحفاظ على تشغيل الملف الرئيسي
     while True:
         time.sleep(3600)
