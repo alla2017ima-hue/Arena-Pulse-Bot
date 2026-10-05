@@ -43,12 +43,8 @@ def send_telegram_message(text):
 sent_news = set()
 
 def fetch_live_sports_news():
-    """جلب الأخبار الرياضية الحية عبر خلاصات بديلة وموثوقة باللغة العربية"""
-    # استخدام خلاصة رياضية عربية مرنة ومستقرة
-    rss_url = "https://www.kooora.com/default.aspx?r=rss" # سنقوم بتوجيهه لمصدر بديل ومباشر
-    
-    # استخدام مصدر بديل يضمن تدفق الأخبار العربية فوراً
-    alt_rss_url = "https://www.filgoal.com/rss/news" # موقع في الجول يعتبر من أقوى وأسرع المصادر الرياضية العربية
+    """جلب الأخبار الرياضية الحية عبر خلاصات موثوقة باللغة العربية"""
+    alt_rss_url = "https://www.filgoal.com/rss/news"
     
     try:
         headers = {
@@ -60,7 +56,7 @@ def fetch_live_sports_news():
         if response.status_code == 200:
             feed = feedparser.parse(response.content)
             if feed.entries:
-                print(تم العثور على {len(feed.entries)} خبراً في المصدر.)
+                print(f"تم العثور على {len(feed.entries)} خبراً في المصدر.")
                 # فحص أحدث الأنباء
                 for entry in feed.entries[:3]:
                     news_title = entry.title
@@ -70,7 +66,7 @@ def fetch_live_sports_news():
                         sent_news.add(news_title)
                         current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
                         
-                        # قالب الجريدة الاحترافي الذي طلبته
+                        # قالب الجريدة الاحترافي
                         message = (
                             f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
                             f"━━━━━━━━━━━━━━━━━━━\n\n"
@@ -85,14 +81,14 @@ def fetch_live_sports_news():
                         )
                         
                         send_telegram_message(message)
-                        time.sleep(3) # فاصل زمني بسيط بين كل خبر
+                        time.sleep(3)
             else:
                 print("⚠️ تنبيه: الخلاصة فارغة حالياً.")
         else:
             print(f"⚠️ فشل الاتصال بالمصدر، كود الاستجابة: {response.status_code}")
             
     except Exception as e:
-        print("⚠️️ [خطأ أثناء جلب الأخبار]:", e)
+        print("⚠ [خطأ أثناء جلب الأخبار]:", e)
 
 def bot_loop():
     print("🤖 صحيفة Arena Pulse الرقمية تبدأ بث الأخبار الحية المباشرة...")
@@ -101,7 +97,7 @@ def bot_loop():
     fetch_live_sports_news()
     
     while True:
-        # فحص الأخبار الجديدة كل 10 دقائق لتكون القناة في قلب الحدث لحظة بلحظة
+        # فحص الأخبار الجديدة كل 10 دقائق
         time.sleep(600)
         fetch_live_sports_news()
 
