@@ -1,6 +1,6 @@
 import time
 import requests
-import feedparser
+from bs4 import BeautifulSoup
 from datetime import datetime
 from flask import Flask
 import threading
@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Multi-Source Newspaper Bot is active and running 24/7!"
+    return "Arena Pulse Web Scraping Newspaper Bot is active and running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -33,86 +33,88 @@ def send_telegram_message(text):
         response = requests.post(url, json=payload)
         result = response.json()
         if result.get("ok"):
-            print("✅ [تم بنجاح]: تم نشر الخبر الرياضي في القناة.")
+            print("✅ [تم بنجاح]: تم نشر الخبر في القناة.")
         else:
             print("❌ [خطأ في تليجرام]:", result.get("description"))
     except Exception as e:
         print("⚠ [خطأ في الاتصال]:", e)
 
-# سجل لحفظ العناوين التي تم نشرها لعدم تكرارها
+# سجل لحفظ العناوين لمنع تكرارها
 sent_news = set()
 
-# قائمة متعددة من المصادر الرياضية لضمان تدفق الأخبار باستمرار
-SPORTS_RSS_SOURCES = [
-    "https://www.filgoal.com/rss/news",
-    "https://www.kooora.com/default.aspx?r=rss",
-    "https://www.yallakora.com/rss/sections",
-    "https://www.aljazeera.net/rss/category/sport",
-    "https://www.skynewsarabia.com/web/rss/sports"
-]
-
 def fetch_live_sports_news():
-    """المرور على عدة مصادر رياضية لجلب الأخبار الحية والمضمونة"""
+    """جلب الأخبار مباشرة عبر تحليل صفحة الموقع (Web Scraping)"""
+    target_url = "https://www.yallakora.com/matches"
+    
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'ar-DZ,ar;q=0.9,en-US;q=0.8,en;q=0.7'
     }
     
-    news_published = 0
-    
-    for rss_url in SPORTS_RSS_SOURCES:
-        try:
-            response = requests.get(rss_url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                feed = feedparser.parse(response.content)
-                if feed.entries:
-                    for entry in feed.entries[:2]: # نأخذ أحدث خبرين من كل مصدر نشط
-                        news_title = entry.title
-                        news_link = entry.link if hasattr(entry, 'link') else rss_url
+    try:
+        response = requests.get(target_url, headers=headers, timeout=15)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # البحث عن عناصر الأخبار والعناوين في الصفحة
+            headlines = soup.find_all(['h2', 'h3', 'a'], class_=['title', 'news-title', 'item-title'])
+            
+            count = 0
+            for item in headlines:
+                news_title = item.get_text(strip=True)
+                news_link = item.get('href', '')
+                
+                # التأكد من أن العنوان حقيقي وذو صلة وليس فارغاً
+                if len(news_title) > 15 and news_title not in sent_news:
+                    if not news_link.startswith('http'):
+                        news_link = "https://www.yallakora.com" + news_link
                         
-                        if news_title not in sent_news:
-                            sent_news.add(news_title)
-                            current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
-                            
-                            # قالب الجريدة الاحترافي
-                            message = (
-                                f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
-                                f"━━━━━━━━━━━━━━━━━━━\n\n"
-                                f"🚨 **مانشيت عاجل:**\n"
-                                f"📌 *{news_title}*\n\n"
-                                f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
-                                f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
-                                f"━━━━━━━━━━━━━━━━━━━\n"
-                                f"🕒 الإصدار: `{current_time}`\n"
-                                f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
-                                f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
-                            )
-                            
-                            send_telegram_message(message)
-                            news_published += 1
-                            time.sleep(3)
-                            
-                            # إذا نشرنا خبرين في هذه الجولة، نكتفي مؤقتاً لئلا نغرق القناة
-                            if news_published >= 3:
-                                return
-        except Exception as e:
-            print(f"⚠ [تنبيه في المصدر {rss_url}]:", e)
+                    sent_news.add(news_title)
+                    current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
+                    
+                    # قالب الجريدة الرياضية الاحترافي
+                    message = (
+                        f"📰 **جريدة نبض الملاعب | ARENA PULSE** ⚽\n"
+                        f"━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"🚨 **مانشيت عاجل:**\n"
+                        f"📌 *{news_title}*\n\n"
+                        f"🔗 **للاطلاع على التفاصيل الكاملة:**\n"
+                        f"[اضغط هنا لقراءة الخبر كاملاً]({news_link})\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━\n"
+                        f"🕒 الإصدار: `{current_time}`\n"
+                        f"📢 **تحت رعاية شبكة Arena Pulse الرياضية**\n\n"
+                        f"👇 *لا تنسوا الاشتراك في القناة ومشاركة التغطية ليصلكم كل جديد!*"
+                    )
+                    
+                    send_telegram_message(message)
+                    count += 1
+                    time.sleep(3)
+                    
+                    if count >= 2: # نشر خبرين كحد أقصى في كل دورة
+                        break
+            
+            if count == 0:
+                print("⚠️ تنبيه: لم يتم التقاط عناوين جديدة في هذه الدورة، جارٍ إعادة المحاولة لاحقاً.")
+        else:
+            print(f"⚠️ تعذر الوصول للموقع، كود الاستجابة: {response.status_code}")
+            
+    except Exception as e:
+        print("⚠ [خطأ في عملية التمشيط]:", e)
 
 def bot_loop():
-    print("🤖 صحيفة Arena Pulse الرقمية متعددة المصادر تبدأ العمل...")
+    print("🤖 محرك التنقيب المباشر لصحيفة Arena Pulse بدأ العمل...")
     
     # فحص وجلب الأخبار فوراً عند التشغيل
     fetch_live_sports_news()
     
     while True:
-        # فحص المصادر كل 10 دقائق
+        # فحص الموقع كل 10 دقائق
         time.sleep(600)
         fetch_live_sports_news()
 
 if __name__ == "__main__":
-    # تشغيل خادم فلاسك في الخلفية
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
     
-    # تشغيل محرك الأخبار
     bot_loop()
