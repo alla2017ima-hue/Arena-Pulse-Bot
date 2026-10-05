@@ -39,11 +39,11 @@ def send_telegram_message(text):
         print("⚠ [خطأ في الاتصال]:", e)
 
 def clean_and_format_title(title):
-    """دالة ذكية لتنظيف النصوص المتلاصقة وإضافة المسافات والفواصل تلقائياً"""
+    """دالة دقيقة لتنظيف العناوين ومنع تداخل الحروف العربية"""
+    # إزالة الرموز الزائدة والمسافات المتعددة
     title = re.sub(r'\s+', ' ', title).strip()
-    title = re.sub(r'([؍؞،؛؟!\.\٬٪ٱإأآةيواو])([^\s\d])', r'\1 \2', title)
-    title = re.sub(r'([^\s\d])(\d)', r'\1 \2', title)
-    title = re.sub(r'(\d)([^\s\d])', r'\1 \2', title)
+    # تنظيف الأحرف الإنجليزية المختلطة أو الرموز الغريبة التي تسبب التداخل العكسي
+    title = re.sub(r'[^\w\s\u0600-\u06FF\-\.\,\؟\!\:\'\"]+', '', title)
     return title
 
 def classify_sport(title):
@@ -131,7 +131,7 @@ def fetch_and_publish_news():
     selected_others = other_articles[:20]
     
     final_articles = selected_football + selected_others
-    print(f"📊 إجمالي المقالات المختارة للنشر: {len(final_articles)} مقالاً ({len(selected_football)} كرة قدم، {len(selected_others)} رياضات أخرى).")
+    print(f"📊 إجمالي المقالات المختارة للنشر: {len(final_articles)} مقالاً.")
     
     if not final_articles:
         print("⚠ لم يتم العثور على مقالات جديدة في هذه الدورة.")
