@@ -7,23 +7,24 @@ import threading
 import os
 import re
 
-# إعدادات البوت ومعرف القناة
+# إعدادات البوت ومعرف القناة الاحترافية
 BOT_TOKEN = "8587695169:AAEcrrxE4ONNfipP2iJP1O0DuaLizKcNvSg"
 CHANNEL_ID = "@ArenaPulse_DZ"
 
-# إعداد خادم ويب لاستقرار Render 24/7
+# إعداد خادم الويب لضمان استقرار التشغيل 24/7 مع UptimeRobot
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Arena Pulse Pro Scraper Bot is active and running 24/7!"
+    print("💡 تم استقبال طلب تنشيط من خدمة المراقبة (UptimeRobot). البوت يعمل بكفاءة!")
+    return "Arena Pulse Pro Bot is active, running 24/7, and fully optimized!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
 def send_telegram_message(text):
-    """دالة لإرسال الرسائل إلى قناة تليجرام مع تأخير بسيط لتسلسل الرسائل"""
+    """إرسال الرسائل إلى قناة تيليجرام بتنسيق احترافي"""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHANNEL_ID,
@@ -39,13 +40,13 @@ def send_telegram_message(text):
         print("⚠ [خطأ في الاتصال]:", e)
 
 def clean_and_format_title(title):
-    """دالة دقيقة لتنظيف العناوين ومنع تداخل الحروف العربية"""
+    """تنظيف العناوين ومنع تداخل الحروف لضمان مظهر عربي نقي ومثالي"""
     title = re.sub(r'\s+', ' ', title).strip()
     title = re.sub(r'[^\w\s\u0600-\u06FF\-\.\,\؟\!\:\'\"]+', '', title)
     return title
 
 def get_priority_score(title):
-    """منح نقاط أولوية للخبر لاختيار المانشيتات الكبرى"""
+    """منح نقاط أولوية للخبر لاختيار المانشيتات الكبرى والأحداث الهامة"""
     score = 1
     t = title.lower()
     if any(k in t for k in ["نهائي", "عاجل", "رسمي", "كأس", "دوري أبطال", "ملعب", "باريس", "برشلونة", "ريال مدريد"]):
@@ -54,14 +55,14 @@ def get_priority_score(title):
         score += 3
     return score
 
-# قائمة لتتبع آخر المقالات المنشورة لمنع التكرار
+# ذاكرة ذكية لتخزين آخر العناوين ومنع تكرارها نهائياً مع إدارة الحجم تلقائياً
 sent_news_memory = set()
-MAX_MEMORY_SIZE = 150
+MAX_MEMORY_SIZE = 200
 
 def fetch_and_publish_news():
-    """جلب 5 مقالات جديدة في كل دورة"""
+    """عملية السحب، الفلترة، والنشر الاحترافي لـ 5 أخبار جديدة"""
     global sent_news_memory
-    print(f"🚀 [دورة التجربة] جاري فحص وجلب الأخبار... الوقت: {datetime.now().strftime('%H:%M:%S')}")
+    print(f"🚀 [الدورة الاحترافية] جاري فحص ومسح المواقع الرياضية... الوقت: {datetime.now().strftime('%Y-%m-%d | %H:%M')}")
     
     sources = [
         {"name": "FilGoal", "url": "https://www.filgoal.com/", "domain": "https://www.filgoal.com"},
@@ -103,12 +104,14 @@ def fetch_and_publish_news():
                             "priority": priority
                         }
                         all_articles.append(article_data)
-                            
+                                
         except Exception as e:
             print(f"⚠ تعذر السحب من {source['name']}: {e}")
             
+    # ترتيب المقالات حسب الأولوية لاختيار الأهم
     all_articles.sort(key=lambda x: x["priority"], reverse=True)
     
+    # انتقاء 5 مقالات فريدة حصرياً
     final_articles = []
     for art in all_articles:
         if art["title"] not in sent_news_memory:
@@ -117,21 +120,24 @@ def fetch_and_publish_news():
             if len(final_articles) == 5:
                 break
                 
+    # إدارة حجم الذاكرة المؤقتة لمنع الامتلاء الزائد واستمرار العمل للأبد
     if len(sent_news_memory) > MAX_MEMORY_SIZE:
-        sent_news_memory = set(list(sent_news_memory)[-75:])
+        sent_news_memory = set(list(sent_news_memory)[-100:])
                 
-    print(f"📊 المقالات المختارة للنشر: {len(final_articles)}")
+    print(f"📊 عدد المقالات المختارة للنشر في هذه الدورة: {len(final_articles)}")
     
     if not final_articles:
-        print("⚠ لا توجد أخبار جديدة في هذه الدورة القصيرة.")
+        print("⚠ لا توجد أخبار جديدة حالياً، بانتظار الدورة القادمة...")
         return
 
     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    intro_message = f"📰 *موجز Arena Pulse (تجريبي)*\nأبرز المحطات (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
+    # رسالة مقدمة الموجز الاحترافية
+    intro_message = f"📰 *موجز Arena Pulse الساعي*\nأبرز 5 محطات رياضية لهذا اليوم (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
     send_telegram_message(intro_message)
     time.sleep(2)
     
+    # نشر الأخبار الخمسة بشكل متسلسل وأنيق
     for i, item in enumerate(final_articles, 1):
         message = (
             f"🏅 *خبر ({i}/5) - {item['source']}*\n"
@@ -145,26 +151,29 @@ def fetch_and_publish_news():
         time.sleep(3)
 
 def background_loop():
-    """حلقة تجريبية: الانتظار 5 دقائق (300 ثانية) بين كل دورة وأخرى"""
-    print("⏳ بدأ خيط التجربة (كل 5 دقائق)...")
-    time.sleep(5)
+    """حلقة التشغيل الأبدي: نشر 5 أخبار كل ساعة تماماً (3600 ثانية) مع الحماية ضد التوقف"""
+    print("⏳ بدأ خيط التشغيل المستمر (24/7 Background Loop)...")
+    time.sleep(10)
     while True:
         try:
             fetch_and_publish_news()
         except Exception as e:
-            print(f"❌ خطأ: {e}")
+            print(f"❌ خطأ غير متوقع في الدورة: {e}")
             
-        print("⏳ انتهت الدورة التجريبية. بانتظار 5 دقائق للدورة القادمة...")
-        time.sleep(300)  # تم التعديل إلى 300 ثانية (5 دقائق) للاختبار
+        print("⏳ انتهت دورة النشر الحالية. البوت في وضع الاستعداد لمدة ساعة كاملة...")
+        time.sleep(3600)  # دورة كل ساعة كاملة بانتظام
 
 if __name__ == "__main__":
+    # تشغيل سيرفر الويب لاستقرار Render
     t_web = threading.Thread(target=run_flask)
     t_web.daemon = True
     t_web.start()
     
+    # تشغيل حلقة النشر التلقائية المستمرة في الخلفية
     t_loop = threading.Thread(target=background_loop)
     t_loop.daemon = True
     t_loop.start()
     
+    # الحفاظ على تشغيل السيرفر الرئيسي
     while True:
         time.sleep(3600)
