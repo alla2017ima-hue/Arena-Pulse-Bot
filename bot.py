@@ -8,7 +8,8 @@ import os
 import re
 
 # إعدادات البوت ومعرف القناة الاحترافية
-BOT_TOKEN = "8587695169:AAEcrrxE4ONNfipP2iJP1O0DuaLizKcNvSg"
+BOT_TOKEN = "8611102687:AAHSCu50WpkjhGCmzinW1icz9lJJZiD-KgY"
+
 CHANNEL_ID = "@ArenaPulse_DZ"
 
 # إعداد خادم الويب لضمان استقرار التشغيل 24/7 مع UptimeRobot
