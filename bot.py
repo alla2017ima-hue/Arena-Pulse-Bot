@@ -54,34 +54,14 @@ def get_priority_score(title):
         score += 3
     return score
 
-# ملف محلي لحفظ العناوين المنشورة سابقاً لضمان عدم تكرارها نهائياً حتى لو أعيد تشغيل البوت
-HISTORY_FILE = "sent_news_history.txt"
-
-def load_sent_news():
-    """تحميل سجل الأخبار السابقة من الملف"""
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                return set(line.strip() for line in f if line.strip())
-        except Exception:
-            return set()
-    return set()
-
-def save_sent_news_to_file(title):
-    """حفظ العنوان الجديد مباشرة في ملف السجل"""
-    try:
-        with open(HISTORY_FILE, "a", encoding="utf-8") as f:
-            f.write(title + "\n")
-    except Exception as e:
-        print(f"⚠ خطأ في حفظ السجل: {e}")
-
-# تحميل السجل عند بدء التشغيل
-sent_news = load_sent_news()
+# قائمة لتتبع آخر المقالات المنشورة لمنع التكرار القريب
+sent_news_memory = set()
+MAX_MEMORY_SIZE = 150  # الاحتفاظ بآخر 150 عنوان فقط لضمان عدم توقف الدورات
 
 def fetch_and_publish_news():
-    """جلب 5 مقالات جديدة كلياً وغير منشورة مسبقاً ونشرها كل ساعة"""
-    global sent_news
-    print("🚀 بدء دورة جلب الموجز الساعي (فحص الأخبار الجديدة)...")
+    """جلب 5 مقالات جديدة في كل دورة ساعية وضمان استمرار العمليات"""
+    global sent_news_memory
+    print(f"🚀 [الدورة الساعية] جاري بدء فحص وجلب الأخبار الجديدة... الوقت: {datetime.now().strftime('%H:%M')}")
     
     sources = [
         {"name": "FilGoal", "url": "https://www.filgoal.com/", "domain": "https://www.filgoal.com"},
@@ -109,8 +89,7 @@ def fetch_and_publish_news():
                     raw_title = a_tag.get_text()
                     title = clean_and_format_title(raw_title)
                     
-                    # التحقق من أن العنوان طويل بما يكفي وغير موجود نهائياً في سجل الأخبار السابقة
-                    if len(title) > 20 and title not in sent_news:
+                    if len(title) > 20 and title not in sent_news_memory:
                         link = a_tag.get('href', '')
                         if link and not link.startswith('http'):
                             link = source["domain"] + link
@@ -130,28 +109,32 @@ def fetch_and_publish_news():
         except Exception as e:
             print(f"⚠ تعذر السحب من {source['name']}: {e}")
             
-    # ترتيب المقالات حسب الأولوية لاختيار أفضل الأخبار الجديدة
+    # ترتيب المقالات حسب الأولوية
     all_articles.sort(key=lambda x: x["priority"], reverse=True)
     
-    # اختيار حتى 5 مقالات فريدة حقاً (غير مكررة)
+    # اختيار 5 مقالات جديدة فعلياً
     final_articles = []
     for art in all_articles:
-        if art["title"] not in sent_news:
+        if art["title"] not in sent_news_memory:
             final_articles.append(art)
-            sent_news.add(art["title"])
-            save_sent_news_to_file(art["title"])
+            sent_news_memory.add(art["title"])
             if len(final_articles) == 5:
                 break
                 
-    print(f"📊 إجمالي المقالات الجديدة حقاً المختارة للنشر هذه الساعة: {len(final_articles)} مقالات.")
+    # تنظيف الذاكرة إذا تجاوزت الحجم الأقصى لكي لا تتوقف الدورات القادمة أبداً
+    if len(sent_news_memory) > MAX_MEMORY_SIZE:
+        # الاحتفاظ فقط بنصف العناصر الأخيرة
+        sent_news_memory = set(list(sent_news_memory)[-75:])
+                
+    print(f"📊 إجمالي المقالات المختارة للنشر في هذه الدورة: {len(final_articles)} مقالات.")
     
     if not final_articles:
-        print("⚠ جميع مقالات المواقع الحالية منشورة مسبقاً، بانتظار تحديث المواقع لأخبار جديدة...")
+        print("⚠ لم يتم العثور على مقالات جديدة في هذه الساعة، سيتم إعادة المحاولة في الدورة القادمة.")
         return
 
     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    intro_message = f"📰 *موجز Arena Pulse الساعي*\nأبرز 5 محطات رياضية لهذا الساعة (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
+    intro_message = f"📰 *موجز Arena Pulse الساعي*\nأبرز 5 محطات رياضية لهذه الساعة (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
     send_telegram_message(intro_message)
     time.sleep(2)
     
@@ -168,21 +151,29 @@ def fetch_and_publish_news():
         time.sleep(3)
 
 def background_loop():
-    """حلقة دورية لتحديث ونشر 5 مقالات جديدة كل ساعة (3600 ثانية)"""
-    time.sleep(5)
+    """حلقة دورية لا تتوقف أبداً لتشغيل الدورات كل ساعة بدقة (3600 ثانية)"""
+    print("⏳ بدأ خيط التشغيل الخلفي (Background Loop) بنجاح...")
+    time.sleep(10) # انتظار بسيط عند الإقلاع الأول
     while True:
-        fetch_and_publish_news()
-        print("⏳ انتهت دورة النشر الساعية. بانتظار دورة الساعة القادمة...")
+        try:
+            fetch_and_publish_news()
+        except Exception as e:
+            print(f"❌ حدث خطأ غير متوقع في الدورة: {e}")
+            
+        print("⏳ انتهت الدورة الحالية. البوت في وضع الانتظار لمدة ساعة كاملة للدورة القادمة...")
         time.sleep(3600)
 
 if __name__ == "__main__":
+    # تشغيل سيرفر الويب لاستقرار Render
     t_web = threading.Thread(target=run_flask)
     t_web.daemon = True
     t_web.start()
     
+    # تشغيل حلقة النشر التلقائية المستمرة
     t_loop = threading.Thread(target=background_loop)
     t_loop.daemon = True
     t_loop.start()
     
+    # حلقة رئيسية للحفاظ على تشغيل السيرفر
     while True:
         time.sleep(3600)
