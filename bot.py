@@ -54,14 +54,14 @@ def get_priority_score(title):
         score += 3
     return score
 
-# قائمة لتتبع آخر المقالات المنشورة لمنع التكرار القريب
+# قائمة لتتبع آخر المقالات المنشورة لمنع التكرار
 sent_news_memory = set()
-MAX_MEMORY_SIZE = 150  # الاحتفاظ بآخر 150 عنوان فقط لضمان عدم توقف الدورات
+MAX_MEMORY_SIZE = 150
 
 def fetch_and_publish_news():
-    """جلب 5 مقالات جديدة في كل دورة ساعية وضمان استمرار العمليات"""
+    """جلب 5 مقالات جديدة في كل دورة"""
     global sent_news_memory
-    print(f"🚀 [الدورة الساعية] جاري بدء فحص وجلب الأخبار الجديدة... الوقت: {datetime.now().strftime('%H:%M')}")
+    print(f"🚀 [دورة التجربة] جاري فحص وجلب الأخبار... الوقت: {datetime.now().strftime('%H:%M:%S')}")
     
     sources = [
         {"name": "FilGoal", "url": "https://www.filgoal.com/", "domain": "https://www.filgoal.com"},
@@ -80,7 +80,6 @@ def fetch_and_publish_news():
     
     for source in sources:
         try:
-            print(f"جاري السحب من موقع: {source['name']}...")
             response = requests.get(source["url"], headers=headers, timeout=12)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
@@ -103,16 +102,13 @@ def fetch_and_publish_news():
                             "source": source["name"],
                             "priority": priority
                         }
-                        
                         all_articles.append(article_data)
                             
         except Exception as e:
             print(f"⚠ تعذر السحب من {source['name']}: {e}")
             
-    # ترتيب المقالات حسب الأولوية
     all_articles.sort(key=lambda x: x["priority"], reverse=True)
     
-    # اختيار 5 مقالات جديدة فعلياً
     final_articles = []
     for art in all_articles:
         if art["title"] not in sent_news_memory:
@@ -121,20 +117,18 @@ def fetch_and_publish_news():
             if len(final_articles) == 5:
                 break
                 
-    # تنظيف الذاكرة إذا تجاوزت الحجم الأقصى لكي لا تتوقف الدورات القادمة أبداً
     if len(sent_news_memory) > MAX_MEMORY_SIZE:
-        # الاحتفاظ فقط بنصف العناصر الأخيرة
         sent_news_memory = set(list(sent_news_memory)[-75:])
                 
-    print(f"📊 إجمالي المقالات المختارة للنشر في هذه الدورة: {len(final_articles)} مقالات.")
+    print(f"📊 المقالات المختارة للنشر: {len(final_articles)}")
     
     if not final_articles:
-        print("⚠ لم يتم العثور على مقالات جديدة في هذه الساعة، سيتم إعادة المحاولة في الدورة القادمة.")
+        print("⚠ لا توجد أخبار جديدة في هذه الدورة القصيرة.")
         return
 
     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    intro_message = f"📰 *موجز Arena Pulse الساعي*\nأبرز 5 محطات رياضية لهذه الساعة (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
+    intro_message = f"📰 *موجز Arena Pulse (تجريبي)*\nأبرز المحطات (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
     send_telegram_message(intro_message)
     time.sleep(2)
     
@@ -151,29 +145,26 @@ def fetch_and_publish_news():
         time.sleep(3)
 
 def background_loop():
-    """حلقة دورية لا تتوقف أبداً لتشغيل الدورات كل ساعة بدقة (3600 ثانية)"""
-    print("⏳ بدأ خيط التشغيل الخلفي (Background Loop) بنجاح...")
-    time.sleep(10) # انتظار بسيط عند الإقلاع الأول
+    """حلقة تجريبية: الانتظار 5 دقائق (300 ثانية) بين كل دورة وأخرى"""
+    print("⏳ بدأ خيط التجربة (كل 5 دقائق)...")
+    time.sleep(5)
     while True:
         try:
             fetch_and_publish_news()
         except Exception as e:
-            print(f"❌ حدث خطأ غير متوقع في الدورة: {e}")
+            print(f"❌ خطأ: {e}")
             
-        print("⏳ انتهت الدورة الحالية. البوت في وضع الانتظار لمدة ساعة كاملة للدورة القادمة...")
-        time.sleep(3600)
+        print("⏳ انتهت الدورة التجريبية. بانتظار 5 دقائق للدورة القادمة...")
+        time.sleep(300)  # تم التعديل إلى 300 ثانية (5 دقائق) للاختبار
 
 if __name__ == "__main__":
-    # تشغيل سيرفر الويب لاستقرار Render
     t_web = threading.Thread(target=run_flask)
     t_web.daemon = True
     t_web.start()
     
-    # تشغيل حلقة النشر التلقائية المستمرة
     t_loop = threading.Thread(target=background_loop)
     t_loop.daemon = True
     t_loop.start()
     
-    # حلقة رئيسية للحفاظ على تشغيل السيرفر
     while True:
         time.sleep(3600)
