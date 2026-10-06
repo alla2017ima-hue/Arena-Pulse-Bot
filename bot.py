@@ -7,10 +7,12 @@ import threading
 import os
 import re
 
-# إعدادات البوت ومعرف القناة الاحترافية
+# إعدادات البوت الجديد ومعرف القناة
 BOT_TOKEN = "8611102687:AAHSCu50WpkjhGCmzinW1icz9lJJZiD-KgY"
-
 CHANNEL_ID = "@ArenaPulse_DZ"
+
+# اسم ملف الذاكرة لضمان عدم ضياعها عند إعادة تشغيل السيرفر
+MEMORY_FILE = "news_memory.txt"
 
 # إعداد خادم الويب لضمان استقرار التشغيل 24/7 مع UptimeRobot
 app = Flask(__name__)
@@ -56,13 +58,29 @@ def get_priority_score(title):
         score += 3
     return score
 
-# ذاكرة ذكية لتخزين آخر العناوين ومنع تكرارها نهائياً مع إدارة الحجم تلقائياً
-sent_news_memory = set()
-MAX_MEMORY_SIZE = 200
+# دوال إدارة الذاكرة الدائمة (حفظ واسترجاع الأخبار المنشورة في ملف)
+def load_memory():
+    if os.path.exists(MEMORY_FILE):
+        try:
+            with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+                return set(line.strip() for line in f if line.strip())
+        except Exception:
+            return set()
+    return set()
+
+def save_memory(memory_set):
+    try:
+        # نحتفظ آخر 300 خبر فقط لكي لا يتخم الملف
+        recent_items = list(memory_set)[-300:]
+        with open(MEMORY_FILE, "w", encoding="utf-8") as f:
+            for item in recent_items:
+                f.write(item + "\n")
+    except Exception as e:
+        print(f"⚠ خطأ في حفظ الذاكرة: {e}")
 
 def fetch_and_publish_news():
-    """عملية السحب، الفلترة، والنشر الاحترافي لـ 5 أخبار جديدة"""
-    global sent_news_memory
+    """عملية السحب، الفلترة، والنشر الاحترافي لـ 5 أخبار جديدة حصرية"""
+    sent_news_memory = load_memory()
     print(f"🚀 [الدورة الاحترافية] جاري فحص ومسح المواقع الرياضية... الوقت: {datetime.now().strftime('%Y-%m-%d | %H:%M')}")
     
     sources = [
@@ -109,10 +127,10 @@ def fetch_and_publish_news():
         except Exception as e:
             print(f"⚠ تعذر السحب من {source['name']}: {e}")
             
-    # ترتيب المقالات حسب الأولوية لاختيار الأهم
+    # ترتيب المقالات حسب الأولوية
     all_articles.sort(key=lambda x: x["priority"], reverse=True)
     
-    # انتقاء 5 مقالات فريدة حصرياً
+    # انتقاء 5 مقالات جديدة كلياً غير موجودة في الذاكرة
     final_articles = []
     for art in all_articles:
         if art["title"] not in sent_news_memory:
@@ -121,24 +139,23 @@ def fetch_and_publish_news():
             if len(final_articles) == 5:
                 break
                 
-    # إدارة حجم الذاكرة المؤقتة لمنع الامتلاء الزائد واستمرار العمل للأبد
-    if len(sent_news_memory) > MAX_MEMORY_SIZE:
-        sent_news_memory = set(list(sent_news_memory)[-100:])
+    # حفظ الذاكرة المحدثة في الملف الدائم
+    save_memory(sent_news_memory)
                 
-    print(f"📊 عدد المقالات المختارة للنشر في هذه الدورة: {len(final_articles)}")
+    print(f"📊 عدد المقالات الجديدة المختارة للنشر: {len(final_articles)}")
     
     if not final_articles:
-        print("⚠ لا توجد أخبار جديدة حالياً، بانتظار الدورة القادمة...")
+        print("⚠ لا توجد أخبار جديدة حالياً في هذه الدورة، بانتظار التحديث القادم...")
         return
 
     current_time = datetime.now().strftime('%Y-%m-%d | %H:%M')
     
-    # رسالة مقدمة الموجز الاحترافية
+    # رسالة مقدمة الموجز
     intro_message = f"📰 *موجز Arena Pulse الساعي*\nأبرز 5 محطات رياضية لهذا اليوم (`{current_time}`)\n━━━━━━━━━━━━━━━━━━━"
     send_telegram_message(intro_message)
     time.sleep(2)
     
-    # نشر الأخبار الخمسة بشكل متسلسل وأنيق
+    # نشر المقالات الجديدة الخمسة
     for i, item in enumerate(final_articles, 1):
         message = (
             f"🏅 *خبر ({i}/5) - {item['source']}*\n"
@@ -152,7 +169,7 @@ def fetch_and_publish_news():
         time.sleep(3)
 
 def background_loop():
-    """حلقة التشغيل الأبدي: نشر 5 أخبار كل ساعة تماماً (3600 ثانية) مع الحماية ضد التوقف"""
+    """حلقة التشغيل المستمر (كل ساعة كاملة 3600 ثانية)"""
     print("⏳ بدأ خيط التشغيل المستمر (24/7 Background Loop)...")
     time.sleep(10)
     while True:
@@ -162,19 +179,16 @@ def background_loop():
             print(f"❌ خطأ غير متوقع في الدورة: {e}")
             
         print("⏳ انتهت دورة النشر الحالية. البوت في وضع الاستعداد لمدة ساعة كاملة...")
-        time.sleep(3600)  # دورة كل ساعة كاملة بانتظام
+        time.sleep(3600)
 
 if __name__ == "__main__":
-    # تشغيل سيرفر الويب لاستقرار Render
     t_web = threading.Thread(target=run_flask)
     t_web.daemon = True
     t_web.start()
     
-    # تشغيل حلقة النشر التلقائية المستمرة في الخلفية
     t_loop = threading.Thread(target=background_loop)
     t_loop.daemon = True
     t_loop.start()
     
-    # الحفاظ على تشغيل السيرفر الرئيسي
     while True:
         time.sleep(3600)
